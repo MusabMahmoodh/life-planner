@@ -1,0 +1,1180 @@
+{
+  "info": {
+    "_postman_id": "smart-life-planner-api-v1",
+    "name": "Smart Life Planner API",
+    "description": "Backend API collection for Smart Life Planner - Habit tracking app with AI-powered goal generation and behavioral adaptations.\n\n## Authentication\nAll endpoints require a valid Supabase JWT token in the Authorization header.\n\n## Base URL\nSet the `baseUrl` variable to your backend URL (default: http://localhost:3000)\n\n## Testing Flow\n1. Set your auth token in the collection variables\n2. Generate a goal first\n3. Complete/skip tasks to trigger behavioral evaluation\n4. View and manage adaptations\n\n## Rate Limits\n- POST /goals/generate: 5 requests per 60 seconds per user",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "YOUR_SUPABASE_JWT_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "goalId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adaptationId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Goals",
+      "description": "Goal management endpoints - create AI-generated goals and retrieve goal information.",
+      "item": [
+        {
+          "name": "Generate Goal (AI)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response contains goal data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('goal');",
+                  "    pm.expect(jsonData.data).to.have.property('tasks');",
+                  "});",
+                  "",
+                  "// Save goal ID for subsequent requests",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.goal) {",
+                  "    pm.collectionVariables.set('goalId', jsonData.data.goal.id);",
+                  "    console.log('Saved goalId:', jsonData.data.goal.id);",
+                  "}",
+                  "",
+                  "// Save first task ID",
+                  "if (jsonData.data && jsonData.data.tasks && jsonData.data.tasks.length > 0) {",
+                  "    pm.collectionVariables.set('taskId', jsonData.data.tasks[0].id);",
+                  "    console.log('Saved taskId:', jsonData.data.tasks[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goalDescription\": \"I want to learn Spanish fluently within 6 months by practicing daily conversations and vocabulary\",\n  \"timezone\": \"America/New_York\",\n  \"communicationStyle\": \"encouraging\",\n  \"difficultyPreference\": \"medium\",\n  \"scheduleContext\": \"I work 9-5 on weekdays, prefer mornings for learning\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "generate"]
+            },
+            "description": "Generate a new goal with AI-powered task breakdown.\n\n**Rate Limited:** 5 requests per 60 seconds per user.\n\n**Request Body:**\n- `goalDescription` (required): User's goal description (10-2000 chars)\n- `timezone` (required): User's timezone (e.g., \"America/New_York\")\n- `communicationStyle` (optional): friendly | direct | encouraging\n- `difficultyPreference` (optional): easy | medium | hard | extreme\n- `scheduleContext` (optional): Additional context for AI (max 500 chars)\n\n**Response:** Created goal with AI-generated tasks."
+          }
+        },
+        {
+          "name": "Generate Goal - Fitness Example",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.goal) {",
+                  "    pm.collectionVariables.set('goalId', jsonData.data.goal.id);",
+                  "}",
+                  "if (jsonData.data && jsonData.data.tasks && jsonData.data.tasks.length > 0) {",
+                  "    pm.collectionVariables.set('taskId', jsonData.data.tasks[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goalDescription\": \"Run a 5K marathon in 3 months starting from zero running experience\",\n  \"timezone\": \"Europe/London\",\n  \"communicationStyle\": \"direct\",\n  \"difficultyPreference\": \"easy\",\n  \"scheduleContext\": \"Available evenings after 6pm and weekend mornings\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "generate"]
+            },
+            "description": "Example: Generate a fitness goal."
+          }
+        },
+        {
+          "name": "Generate Goal - Minimal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.goal) {",
+                  "    pm.collectionVariables.set('goalId', jsonData.data.goal.id);",
+                  "}",
+                  "if (jsonData.data && jsonData.data.tasks && jsonData.data.tasks.length > 0) {",
+                  "    pm.collectionVariables.set('taskId', jsonData.data.tasks[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goalDescription\": \"Read one book per month for the next year\",\n  \"timezone\": \"UTC\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "generate"]
+            },
+            "description": "Example: Generate a goal with only required fields."
+          }
+        },
+        {
+          "name": "List Goals",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response data is array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first goal ID if available",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.length > 0) {",
+                  "    pm.collectionVariables.set('goalId', jsonData.data[0].id);",
+                  "    console.log('Saved goalId:', jsonData.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"]
+            },
+            "description": "List all goals for the authenticated user.\n\n**Query Parameters:**\n- `status` (optional): active | completed | paused | abandoned\n- `isArchived` (optional): true | false\n- `limit` (optional): 1-100 (default: 10)\n- `offset` (optional): >= 0 (default: 0)"
+          }
+        },
+        {
+          "name": "List Goals - Active Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All goals are active', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    jsonData.data.forEach(goal => {",
+                  "        pm.expect(goal.status).to.eql('active');",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals?status=active&isArchived=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "isArchived",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "List only active, non-archived goals."
+          }
+        },
+        {
+          "name": "List Goals - Paginated",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response respects limit', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.length).to.be.at.most(5);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals?limit=5&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "List goals with pagination."
+          }
+        },
+        {
+          "name": "Get Goal by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response contains goal details', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.have.property('id');",
+                  "    pm.expect(jsonData.data).to.have.property('title');",
+                  "    pm.expect(jsonData.data).to.have.property('status');",
+                  "    pm.expect(jsonData.data).to.have.property('tasks');",
+                  "});",
+                  "",
+                  "// Save first task ID if available",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.tasks && jsonData.data.tasks.length > 0) {",
+                  "    pm.collectionVariables.set('taskId', jsonData.data.tasks[0].id);",
+                  "    console.log('Saved taskId:', jsonData.data.tasks[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals/{{goalId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "{{goalId}}"]
+            },
+            "description": "Get detailed information about a specific goal including all its tasks.\n\n**Path Parameters:**\n- `id`: Goal UUID\n\n**Response:** Goal details with tasks array."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "description": "Task management endpoints - complete and skip tasks to track progress.",
+      "item": [
+        {
+          "name": "Complete Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Task status is completed', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.task.status).to.eql('completed');",
+                  "});",
+                  "",
+                  "pm.test('Response contains behavioral evaluation', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    // behavioralEvaluation may or may not be present depending on triggers",
+                  "    if (jsonData.data.behavioralEvaluation) {",
+                  "        pm.expect(jsonData.data.behavioralEvaluation).to.be.an('object');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actualDuration\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "complete"]
+            },
+            "description": "Mark a task as completed.\n\n**Path Parameters:**\n- `id`: Task UUID\n\n**Request Body:**\n- `actualDuration` (optional): Actual time spent in minutes (1-1440)\n\n**Response:** Updated task with optional behavioral evaluation.\n\n**Side Effects:**\n- Triggers behavioral engine evaluation\n- May generate adaptation proposals"
+          }
+        },
+        {
+          "name": "Complete Task - No Duration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Task status is completed', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.task.status).to.eql('completed');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "complete"]
+            },
+            "description": "Complete a task without specifying actual duration."
+          }
+        },
+        {
+          "name": "Skip Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Task status is skipped', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.task.status).to.eql('skipped');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/skip",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "skip"]
+            },
+            "description": "Skip a task (mark as intentionally not completed).\n\n**Path Parameters:**\n- `id`: Task UUID\n\n**Response:** Updated task with optional behavioral evaluation.\n\n**Side Effects:**\n- Triggers behavioral engine evaluation\n- Consecutive skips may trigger adaptation proposals"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Adaptations",
+      "description": "Adaptation management - view, accept, reject, or rollback AI-proposed plan changes.",
+      "item": [
+        {
+          "name": "List Adaptations for Goal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Response data is array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});",
+                  "",
+                  "// Save first adaptation ID if available",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.length > 0) {",
+                  "    pm.collectionVariables.set('adaptationId', jsonData.data[0].id);",
+                  "    console.log('Saved adaptationId:', jsonData.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/adaptations/{{goalId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["adaptations", "{{goalId}}"]
+            },
+            "description": "List all adaptations for a specific goal.\n\n**Path Parameters:**\n- `goalId`: Goal UUID\n\n**Query Parameters:**\n- `status` (optional): suggested | accepted | rejected | rolled_back\n- `limit` (optional): 1-100 (default: 10)\n- `offset` (optional): >= 0 (default: 0)\n\n**Response:** Array of adaptations with their status and proposed changes."
+          }
+        },
+        {
+          "name": "List Adaptations - Suggested Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('All adaptations are suggested', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    jsonData.data.forEach(adaptation => {",
+                  "        pm.expect(adaptation.status).to.eql('suggested');",
+                  "    });",
+                  "});",
+                  "",
+                  "// Save first suggested adaptation ID",
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.length > 0) {",
+                  "    pm.collectionVariables.set('adaptationId', jsonData.data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/adaptations/{{goalId}}?status=suggested",
+              "host": ["{{baseUrl}}"],
+              "path": ["adaptations", "{{goalId}}"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "suggested"
+                }
+              ]
+            },
+            "description": "List only pending (suggested) adaptations that need user decision."
+          }
+        },
+        {
+          "name": "Accept Adaptation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Adaptation status is accepted', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.status).to.eql('accepted');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/adaptations/{{adaptationId}}/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["adaptations", "{{adaptationId}}", "accept"]
+            },
+            "description": "Accept a suggested adaptation and apply the proposed changes.\n\n**Path Parameters:**\n- `id`: Adaptation UUID\n\n**Side Effects:**\n- Applies proposed changes to goal/tasks\n- Increments goal.planVersion\n- Snapshots previous state for potential rollback\n- Creates audit log entry"
+          }
+        },
+        {
+          "name": "Reject Adaptation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has success true', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Adaptation status is rejected', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.status).to.eql('rejected');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/adaptations/{{adaptationId}}/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["adaptations", "{{adaptationId}}", "reject"]
+            },
+            "description": "Reject a suggested adaptation.\n\n**Path Parameters:**\n- `id`: Adaptation UUID\n\n**Side Effects:**\n- Marks adaptation as rejected\n- Blocks re-application of same adaptation type for 7 days\n- Creates audit log entry"
+          }
+        },
+        {
+          "name": "Rollback Adaptation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200 or 400', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    pm.test('Adaptation status is rolled_back', function () {",
+                  "        const jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.data.status).to.eql('rolled_back');",
+                  "    });",
+                  "}",
+                  "",
+                  "if (pm.response.code === 400) {",
+                  "    pm.test('Error message explains rollback failure', function () {",
+                  "        const jsonData = pm.response.json();",
+                  "        pm.expect(jsonData.message).to.include('rollback');",
+                  "    });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/adaptations/{{adaptationId}}/rollback",
+              "host": ["{{baseUrl}}"],
+              "path": ["adaptations", "{{adaptationId}}", "rollback"]
+            },
+            "description": "Rollback a previously accepted adaptation.\n\n**Path Parameters:**\n- `id`: Adaptation UUID\n\n**Constraints:**\n- Only accepted adaptations can be rolled back\n- Must be within 24-hour rollback window\n\n**Side Effects:**\n- Restores previous state from snapshot\n- Marks adaptation as rolled_back\n- Blocks re-application for 7 days\n- Creates audit log entry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "description": "Test error handling and validation.",
+      "item": [
+        {
+          "name": "Generate Goal - Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test('Response contains validation errors', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goalDescription\": \"short\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "generate"]
+            },
+            "description": "Test validation: missing timezone, goalDescription too short."
+          }
+        },
+        {
+          "name": "Generate Goal - Invalid Enum",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"goalDescription\": \"I want to learn a new skill over the next few months\",\n  \"timezone\": \"America/New_York\",\n  \"difficultyPreference\": \"impossible\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "generate"]
+            },
+            "description": "Test validation: invalid difficultyPreference enum value."
+          }
+        },
+        {
+          "name": "Get Goal - Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Test 404 response for non-existent goal."
+          }
+        },
+        {
+          "name": "Complete Task - Not Found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/00000000-0000-0000-0000-000000000000/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "00000000-0000-0000-0000-000000000000", "complete"]
+            },
+            "description": "Test 404 response for non-existent task."
+          }
+        },
+        {
+          "name": "Complete Task - Invalid Duration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actualDuration\": 9999\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "complete"]
+            },
+            "description": "Test validation: actualDuration exceeds max (1440 minutes)."
+          }
+        },
+        {
+          "name": "Unauthorized Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": ["{{baseUrl}}"],
+              "path": ["goals"]
+            },
+            "description": "Test 401 response when no auth token provided."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Flows",
+      "description": "End-to-end test scenarios combining multiple endpoints.",
+      "item": [
+        {
+          "name": "Flow: Create Goal → Complete Tasks → Check Adaptations",
+          "item": [
+            {
+              "name": "1. Generate Goal",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Goal created', function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set('flowGoalId', jsonData.data.goal.id);",
+                      "pm.collectionVariables.set('flowTaskId1', jsonData.data.tasks[0].id);",
+                      "if (jsonData.data.tasks.length > 1) {",
+                      "    pm.collectionVariables.set('flowTaskId2', jsonData.data.tasks[1].id);",
+                      "}",
+                      "if (jsonData.data.tasks.length > 2) {",
+                      "    pm.collectionVariables.set('flowTaskId3', jsonData.data.tasks[2].id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"goalDescription\": \"Build a daily meditation habit starting with 5 minutes and gradually increasing to 20 minutes over 2 months\",\n  \"timezone\": \"America/Chicago\",\n  \"communicationStyle\": \"encouraging\",\n  \"difficultyPreference\": \"easy\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/goals/generate",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["goals", "generate"]
+                }
+              }
+            },
+            {
+              "name": "2. Complete First Task",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Task completed', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.data.task.status).to.eql('completed');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"actualDuration\": 5\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/tasks/{{flowTaskId1}}/complete",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["tasks", "{{flowTaskId1}}", "complete"]
+                }
+              }
+            },
+            {
+              "name": "3. Skip Second Task",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Task skipped', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.data.task.status).to.eql('skipped');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/tasks/{{flowTaskId2}}/skip",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["tasks", "{{flowTaskId2}}", "skip"]
+                }
+              }
+            },
+            {
+              "name": "4. Get Goal Details",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Goal retrieved', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test('Goal has tasks with mixed status', function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const statuses = jsonData.data.tasks.map(t => t.status);",
+                      "    pm.expect(statuses).to.include('completed');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/goals/{{flowGoalId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["goals", "{{flowGoalId}}"]
+                }
+              }
+            },
+            {
+              "name": "5. Check for Adaptations",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Adaptations endpoint works', function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "console.log('Adaptations found:', jsonData.data.length);",
+                      "",
+                      "if (jsonData.data.length > 0) {",
+                      "    pm.collectionVariables.set('flowAdaptationId', jsonData.data[0].id);",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/adaptations/{{flowGoalId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["adaptations", "{{flowGoalId}}"]
+                }
+              }
+            }
+          ],
+          "description": "Complete flow: Create a goal, complete/skip some tasks, then check if any adaptations were proposed."
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "description": "Basic health and connectivity checks.",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Server is running', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Basic health check endpoint (if implemented)."
+          }
+        }
+      ]
+    }
+  ]
+}

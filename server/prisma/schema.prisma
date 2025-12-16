@@ -1,0 +1,213 @@
+// Prisma Schema for Smart Life Planner
+// @see BACKEND SPECIFICATION Section 5 - Data Models
+// @see LLM INPUT CONTRACT Section 5 - Core Domain Models
+// Prisma 7.x compatible - connection configured via prisma.config.ts
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// User Model
+// @see BACKEND SPECIFICATION Section 5 - User
+// ============================================
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  timezone  String   @default("UTC")
+  
+  /// User preferences stored as JSONB
+  /// Contains: communicationStyle, difficultyPreference, reminderTimes[]
+  preferences Json @default("{}")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  goals Goal[]
+
+  @@map("users")
+}
+
+// ============================================
+// Goal Model
+// @see BACKEND SPECIFICATION Section 5 - Goal
+// ============================================
+
+/// Goal status enum matching domain specification
+enum GoalStatus {
+  active
+  completed
+  paused
+  abandoned
+}
+
+model Goal {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  title       String
+  status      GoalStatus @default(active)
+  isArchived  Boolean    @default(false) @map("is_archived")
+  
+  /// Incremented on each adaptation acceptance
+  planVersion Int @default(1) @map("plan_version")
+  
+  /// Original AI-generated plan text
+  originalPlan String? @map("original_plan") @db.Text
+  
+  /// JSONB fields for behavioral tracking
+  /// @see BACKEND SPECIFICATION Section 6 - Behavioral Engine Inputs
+  consistencyMetrics Json @default("{}") @map("consistency_metrics")
+  failureRecovery    Json @default("{}") @map("failure_recovery")
+  progressSignals    Json @default("{}") @map("progress_signals")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  adaptations Adaptation[]
+
+  // Indexes for performance
+  // @see BACKEND SPECIFICATION Section 13 - Performance
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, isArchived])
+  @@map("goals")
+}
+
+// ============================================
+// Task Model
+// @see BACKEND SPECIFICATION Section 5 - Task
+// ============================================
+
+/// Task status enum matching domain specification
+enum TaskStatus {
+  pending
+  completed
+  skipped
+  overdue
+}
+
+/// Task difficulty levels
+/// Changes constrained to ±1 level per adaptation
+/// @see BACKEND SPECIFICATION Section 7 - AI Validation Rules
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+  extreme
+}
+
+/// Task frequency/recurrence type
+enum TaskFrequency {
+  daily
+  weekly
+  milestone
+}
+
+model Task {
+  id                String          @id @default(uuid()) @db.Uuid
+  goalId            String          @map("goal_id") @db.Uuid
+  title             String
+  status            TaskStatus      @default(pending)
+  difficulty        DifficultyLevel @default(medium)
+  frequency         TaskFrequency   @default(daily)
+  
+  /// Estimated duration in minutes
+  estimatedDuration Int @map("estimated_duration")
+  
+  /// Actual duration in minutes (filled on completion)
+  actualDuration    Int? @map("actual_duration")
+  
+  isOptional        Boolean @default(false) @map("is_optional")
+  
+  /// Order within the goal's task list
+  orderIndex        Int @default(0) @map("order_index")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  // Indexes for performance
+  // @see BACKEND SPECIFICATION Section 13 - Performance
+  @@index([goalId])
+  @@index([goalId, status])
+  @@map("tasks")
+}
+
+// ============================================
+// Adaptation Model (CRITICAL)
+// @see BACKEND SPECIFICATION Section 5 - Adaptation
+// @see BACKEND SPECIFICATION Section 8 - Adaptation Lifecycle
+// 
+// This table is MANDATORY.
+// No silent AI changes allowed.
+// All adaptations must be auditable.
+// ============================================
+
+/// Adaptation type enum
+enum AdaptationType {
+  difficulty_change
+  reschedule
+  buffer_add
+}
+
+/// Adaptation lifecycle status
+/// All adaptations start as 'suggested' and require user action
+enum AdaptationStatus {
+  suggested
+  accepted
+  rejected
+  rolled_back
+}
+
+/// Creator of the adaptation
+enum AdaptationCreator {
+  system
+  user
+}
+
+model Adaptation {
+  id            String            @id @default(uuid()) @db.Uuid
+  goalId        String            @map("goal_id") @db.Uuid
+  type          AdaptationType
+  reason        String            @db.Text
+  
+  /// Snapshot of state before adaptation
+  /// Used for rollback functionality
+  previousState Json @map("previous_state")
+  
+  /// Proposed new state
+  newState      Json @map("new_state")
+  
+  status        AdaptationStatus  @default(suggested)
+  createdBy     AdaptationCreator @map("created_by")
+  
+  /// Timestamp when adaptation was accepted/rejected/rolled_back
+  processedAt   DateTime?         @map("processed_at")
+  
+  /// Block re-application until this date (7 days after rejection)
+  /// @see LLM INPUT CONTRACT Section 8 - Adaptation Lifecycle
+  blockedUntil  DateTime?         @map("blocked_until")
+  
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  // Indexes for performance
+  @@index([goalId])
+  @@index([goalId, status])
+  @@index([status])
+  @@map("adaptations")
+}
