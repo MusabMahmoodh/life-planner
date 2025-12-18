@@ -142,11 +142,11 @@ class CoachingAgent:
                     plan_response = supabase_admin.table('plans')\
                         .select('*')\
                         .eq('goal_id', self.goal['id'])\
-                        .single()\
+                        .limit(1)\
                         .execute()
 
-                    if plan_response.data:
-                        plan = plan_response.data
+                    if plan_response.data and len(plan_response.data) > 0:
+                        plan = plan_response.data[0]
 
                         # Modify plan
                         modified = plan_service.modify_plan_with_agent(
@@ -172,10 +172,10 @@ class CoachingAgent:
                         updated_response = supabase_admin.table('plans')\
                             .select('*')\
                             .eq('goal_id', self.goal['id'])\
-                            .single()\
+                            .limit(1)\
                             .execute()
-                        
-                        updated_plan = updated_response.data
+
+                        updated_plan = updated_response.data[0]
                         
                         plan_data = {
                             "plan_id": updated_plan['id'],

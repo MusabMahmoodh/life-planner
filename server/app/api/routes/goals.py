@@ -81,26 +81,42 @@ async def get_goal(
     current_user: dict = Depends(get_current_user)
 ):
     """Get goal details with plan"""
-    
+
     try:
-        # Get goal with plan
-        response = supabase_admin.table('goals')\
-            .select('*, plans(*)')\
-            .eq('id', goal_id)\
-            .eq('user_id', current_user['id'])\
-            .single()\
-            .execute()
-        
-        if not response.data:
+        # Get goal with plan (use limit(1) instead of single() to avoid exception on no results)
+        # response = supabase_admin.table('goals')\
+        #     .select('*, plans(*)')\
+        #     .eq('id', goal_id)\
+        #     .eq('user_id', current_user['id'])\
+        #     .limit(1)\
+        #     .execute()
+        response = (
+                    supabase_admin
+                    .table('goals')
+                    .select('*')
+                    .eq('id', goal_id)
+                    .eq('user_id', current_user['id'])
+                    .limit(1)
+                    .execute()
+                )
+
+
+
+        if not response.data or len(response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"
             )
-        
-        goal = response.data
-        plans = goal.get('plans', [])
+
+        goal = response.data[0]
+        plans = (supabase_admin
+                    .table('plans')
+                    .select('*')
+                    .eq('goal_id', goal_id)
+                    .execute()
+                ).data
         plan_data = plans[0] if plans else None
-        
+
         return GoalDetailResponse(
             id=goal['id'],
             coach_name=goal['coach_name'],
@@ -110,10 +126,11 @@ async def get_goal(
             created_at=goal['created_at'],
             plan=plan_data
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error fetching goal: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch goal: {str(e)}"

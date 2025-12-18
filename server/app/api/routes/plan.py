@@ -12,30 +12,30 @@ async def accept_plan(
     current_user: dict = Depends(get_current_user)
 ):
     """Accept the plan for a goal"""
-    
+
     try:
         # Verify goal ownership
         goal_response = supabase_admin.table('goals')\
             .select('id')\
             .eq('id', goal_id)\
             .eq('user_id', current_user['id'])\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not goal_response.data:
+
+        if not goal_response.data or len(goal_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"
             )
-        
+
         # Get plan
         plan_response = supabase_admin.table('plans')\
             .select('id')\
             .eq('goal_id', goal_id)\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not plan_response.data:
+
+        if not plan_response.data or len(plan_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No plan found for this goal"
@@ -56,7 +56,7 @@ async def accept_plan(
         return {
             "message": "Plan accepted successfully",
             "goal_id": goal_id,
-            "plan_id": plan_response.data['id'],
+            "plan_id": plan_response.data[0]['id'],
             "status": "active"
         }
         
@@ -76,38 +76,38 @@ async def tweak_plan(
     current_user: dict = Depends(get_current_user)
 ):
     """Tweak the plan using AI (direct OpenAI completion)"""
-    
+
     try:
         # Get goal
         goal_response = supabase_admin.table('goals')\
             .select('goal_description, coach_name')\
             .eq('id', goal_id)\
             .eq('user_id', current_user['id'])\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not goal_response.data:
+
+        if not goal_response.data or len(goal_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"
             )
-        
-        goal = goal_response.data
-        
+
+        goal = goal_response.data[0]
+
         # Get plan
         plan_response = supabase_admin.table('plans')\
             .select('*')\
             .eq('goal_id', goal_id)\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not plan_response.data:
+
+        if not plan_response.data or len(plan_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="No plan found for this goal"
             )
-        
-        plan = plan_response.data
+
+        plan = plan_response.data[0]
         
         # Current plan data
         current_plan_data = {
@@ -139,10 +139,10 @@ async def tweak_plan(
         updated_plan_response = supabase_admin.table('plans')\
             .select('*')\
             .eq('goal_id', goal_id)\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        updated_plan = updated_plan_response.data
+
+        updated_plan = updated_plan_response.data[0]
         
         return TweakPlanResponse(
             plan={
@@ -171,17 +171,17 @@ async def complete_goal(
     current_user: dict = Depends(get_current_user)
 ):
     """Mark a goal as completed"""
-    
+
     try:
         # Verify goal ownership
         goal_response = supabase_admin.table('goals')\
             .select('id')\
             .eq('id', goal_id)\
             .eq('user_id', current_user['id'])\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not goal_response.data:
+
+        if not goal_response.data or len(goal_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"

@@ -13,24 +13,33 @@ async def load_chat(
     current_user: dict = Depends(get_current_user)
 ):
     """Load chat history for a goal with generated welcome message"""
-    
+
     try:
-        # Get goal with plan
-        goal_response = supabase_admin.table('goals')\
-            .select('*, plans(total_steps)')\
-            .eq('id', goal_id)\
-            .eq('user_id', current_user['id'])\
-            .single()\
-            .execute()
-        
-        if not goal_response.data:
+        # Get goal with plan (use limit(1) instead of single() to avoid exception on no results)
+        goal_response = (
+                supabase_admin
+                .table('goals')
+                .select('*')
+                .eq('id', goal_id)
+                .eq('user_id', current_user['id'])
+                .limit(1)
+                .execute()
+            )
+
+
+        if not goal_response.data or len(goal_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"
             )
-        
-        goal = goal_response.data
-        plans = goal.get('plans', [])
+
+        goal = goal_response.data[0]
+        plans = (supabase_admin
+                    .table('plans')
+                    .select('*')
+                    .eq('goal_id', goal_id)
+                    .execute()
+                ).data
         total_steps = plans[0]['total_steps'] if plans else 0
         
         # Get messages
@@ -76,6 +85,8 @@ async def load_chat(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error fetching goal: {e}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to load chat: {str(e)}"
@@ -89,23 +100,23 @@ async def chat_with_coach(
     current_user: dict = Depends(get_current_user)
 ):
     """Chat with the coach using LangChain agent"""
-    
+
     try:
-        # Get goal
+        # Get goal (use limit(1) instead of single() to avoid exception on no results)
         goal_response = supabase_admin.table('goals')\
             .select('*')\
             .eq('id', goal_id)\
             .eq('user_id', current_user['id'])\
-            .single()\
+            .limit(1)\
             .execute()
-        
-        if not goal_response.data:
+
+        if not goal_response.data or len(goal_response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Goal not found"
             )
-        
-        goal = goal_response.data
+
+        goal = goal_response.data[0]
         
         # Create agent and process message
         agent = CoachingAgent(goal=goal, user_id=current_user['id'])
@@ -116,6 +127,8 @@ async def chat_with_coach(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Error fetching goal: {e}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing message: {str(e)}"
