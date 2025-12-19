@@ -745,18 +745,63 @@ function App() {
     }
   };
 
+  const toggleStepCompletion = async (stepId, currentCompleted) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/goal/${currentGoal.id}/step/${stepId}/completion`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            step_id: stepId,
+            completed: !currentCompleted,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update step");
+      }
+
+      const data = await response.json();
+      
+      // Update local plan data
+      setPlanData((prev) => {
+        const updatedSteps = prev.steps.map((step) =>
+          step.id === stepId
+            ? { ...step, completed: !currentCompleted }
+            : step
+        );
+        return { ...prev, steps: updatedSteps };
+      });
+    } catch (error) {
+      alert("Failed to update step: " + error.message);
+    }
+  };
+
   const tweakPlan = async () => {
     if (!tweakMessage.trim()) return;
 
     setLoading(true);
     try {
+      // Filter out completed steps - only send remaining steps for tweaking
+      const remainingSteps = planData.steps.filter(
+        (step) => !step.completed
+      );
+
       const response = await fetch(`${API_URL}/goal/${currentGoal.id}/tweak`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ tweak_message: tweakMessage }),
+        body: JSON.stringify({
+          tweak_message: tweakMessage,
+          remaining_steps: remainingSteps,
+        }),
       });
 
       const data = await response.json();
@@ -924,7 +969,7 @@ function App() {
                 <p>No goals yet. Create your first goal to get started!</p>
               </div>
             ) : (
-              goals.map((goal) => (
+              goals?.map((goal) => (
                 <div
                   key={goal.id}
                   onClick={() => openGoal(goal)}
@@ -1138,22 +1183,34 @@ function App() {
                 }`}
               >
                 <div className="flex items-start gap-4">
-                  <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                      step.completed
-                        ? "bg-green-100 text-green-600"
-                        : index === currentGoal.current_step
-                        ? "bg-blue-100 text-blue-600"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {step.completed ? "✓" : step.id}
+                  <div className="flex-shrink-0 flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={step.completed || false}
+                      onChange={() => toggleStepCompletion(step.id, step.completed || false)}
+                      className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
+                    />
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                        step.completed
+                          ? "bg-green-100 text-green-600"
+                          : index === currentGoal.current_step
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {step.completed ? "✓" : step.id}
+                    </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    <h3 className={`text-lg font-semibold mb-1 ${
+                      step.completed ? "text-gray-500 line-through" : "text-gray-900"
+                    }`}>
                       {step.title}
                     </h3>
-                    <p className="text-gray-600 mb-2">{step.description}</p>
+                    <p className={`mb-2 ${step.completed ? "text-gray-400" : "text-gray-600"}`}>
+                      {step.description}
+                    </p>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Clock className="w-4 h-4" />
                       <span>{step.duration}</span>
@@ -1189,10 +1246,13 @@ function App() {
               <textarea
                 value={tweakMessage}
                 onChange={(e) => setTweakMessage(e.target.value)}
-                placeholder="e.g., Skip the next 5 steps, make it more challenging, add more practice time..."
+                placeholder="e.g., Make it more challenging, add more practice time, adjust the remaining steps..."
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none mb-4"
                 rows="4"
               />
+              <p className="text-xs text-gray-500 mb-4">
+                Note: Only unchecked (remaining) steps will be modified. Completed steps will be preserved.
+              </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setTweakDialogOpen(false)}

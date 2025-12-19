@@ -11,12 +11,27 @@ async def list_goals(current_user: dict = Depends(get_current_user)):
     """Get all goals for the logged-in user"""
     
     try:
-        # Query goals with plan check
+        # Query goals
         response = supabase_admin.table('goals')\
-            .select('*, plans(id)')\
+            .select('*')\
             .eq('user_id', current_user['id'])\
             .order('created_at', desc=True)\
             .execute()
+        
+        if not response.data:
+            return []
+        
+        # Get all goal IDs
+        goal_ids = [goal['id'] for goal in response.data]
+        
+        # Query all plans for these goals in one query
+        plans_response = supabase_admin.table('plans')\
+            .select('goal_id')\
+            .in_('goal_id', goal_ids)\
+            .execute()
+        
+        # Create a set of goal_ids that have plans
+        goals_with_plans = {plan['goal_id'] for plan in plans_response.data}
         
         return [
             GoalResponse(
@@ -27,7 +42,7 @@ async def list_goals(current_user: dict = Depends(get_current_user)):
                 current_step=goal['current_step'],
                 created_at=goal['created_at'],
                 updated_at=goal['updated_at'],
-                has_plan=len(goal.get('plans', [])) > 0
+                has_plan=goal['id'] in goals_with_plans
             )
             for goal in response.data
         ]

@@ -24,7 +24,12 @@ class ChatResponse(BaseModel):
 
 class TweakPlanRequest(BaseModel):
     tweak_message: str
+    remaining_steps: Optional[List[Dict[str, Any]]] = None
 
 class TweakPlanResponse(BaseModel):
     plan: Dict[str, Any]
     message: str
+
+class UpdateStepCompletionRequest(BaseModel):
+    step_id: int
+    completed: bool
