@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import auth, goals, plan, chat
+import os
 
 app = FastAPI(
     title="AI Coaching Platform API (Supabase)",
@@ -8,10 +9,15 @@ app = FastAPI(
     description="Full-featured coaching platform with Supabase backend"
 )
 
-# CORS
+# CORS - Allow origins from environment variable or default to localhost
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:3000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
