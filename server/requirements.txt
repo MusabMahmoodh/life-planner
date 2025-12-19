@@ -11,6 +11,7 @@ langchain-anthropic
 pydantic
 pydantic-settings
 python-dotenv
+email-validator
 
 # Utilities
 httpx
