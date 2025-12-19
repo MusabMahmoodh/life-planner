@@ -4,6 +4,8 @@ uvicorn
 
 # LangChain Stack
 langchain
+langchain-core
+langchain-classic
 langchain-openai
 langchain-anthropic
 
