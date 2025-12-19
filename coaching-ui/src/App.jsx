@@ -409,6 +409,20 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:8000/api";
+const API_TIMEOUT = 40000; // 40 seconds
+
+// Helper function to add timeout to fetch requests
+const fetchWithTimeout = (url, options = {}) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+  
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => {
+    clearTimeout(timeoutId);
+  });
+};
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -510,7 +524,7 @@ function App() {
   const handleRegister = async () => {
     setAuthLoading(true);
     try {
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await fetchWithTimeout(`${API_URL}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -545,7 +559,7 @@ function App() {
   const handleLogin = async () => {
     setAuthLoading(true);
     try {
-      const response = await fetch(`${API_URL}/login`, {
+      const response = await fetchWithTimeout(`${API_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -585,7 +599,7 @@ function App() {
   // Goals Functions
   const fetchGoals = async () => {
     try {
-      const response = await fetch(`${API_URL}/goals`, {
+      const response = await fetchWithTimeout(`${API_URL}/goals`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -603,7 +617,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/goals`, {
+      const response = await fetchWithTimeout(`${API_URL}/goals`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -632,7 +646,7 @@ function App() {
 
     // Fetch full goal details to get plan
     try {
-      const response = await fetch(`${API_URL}/goals/${goal.id}`, {
+      const response = await fetchWithTimeout(`${API_URL}/goals/${goal.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -649,7 +663,7 @@ function App() {
   // Chat Functions
   const loadChat = async (goalId) => {
     try {
-      const response = await fetch(`${API_URL}/goal/${goalId}/chat`, {
+      const response = await fetchWithTimeout(`${API_URL}/goal/${goalId}/chat`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -676,7 +690,7 @@ function App() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/goal/${currentGoal.id}/chat`, {
+      const response = await fetchWithTimeout(`${API_URL}/goal/${currentGoal.id}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -699,10 +713,16 @@ function App() {
       // Update current goal status
       setCurrentGoal((prev) => ({ ...prev, status: data.stage }));
 
-      // Handle screen changes
+      // Handle plan updates during chat
       if (data.flag === "PLAN_SCREEN" && data.plan_data) {
         setPlanData(data.plan_data);
+        // If plan was updated during chat, switch to plan screen to show changes
         setScreen("PLAN_SCREEN");
+      } else if (data.plan_data) {
+        // If plan_data exists but flag is not PLAN_SCREEN, still update plan data
+        // This handles cases where plan is updated but we stay in conversation
+        setPlanData(data.plan_data);
+        setCurrentGoal((prev) => ({ ...prev, status: data.stage || prev.status }));
       }
     } catch (error) {
       setMessages((prev) => [
@@ -729,7 +749,7 @@ function App() {
   const acceptPlan = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/goal/${currentGoal.id}/accept`, {
+      const response = await fetchWithTimeout(`${API_URL}/goal/${currentGoal.id}/accept`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -747,7 +767,7 @@ function App() {
 
   const toggleStepCompletion = async (stepId, currentCompleted) => {
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${API_URL}/goal/${currentGoal.id}/step/${stepId}/completion`,
         {
           method: "PUT",
@@ -792,7 +812,7 @@ function App() {
         (step) => !step.completed
       );
 
-      const response = await fetch(`${API_URL}/goal/${currentGoal.id}/tweak`, {
+      const response = await fetchWithTimeout(`${API_URL}/goal/${currentGoal.id}/tweak`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -806,9 +826,11 @@ function App() {
 
       const data = await response.json();
       setPlanData(data.plan);
+      // Update goal status to pending_acceptance after tweak
+      setCurrentGoal((prev) => ({ ...prev, status: 'pending_acceptance' }));
       setTweakDialogOpen(false);
       setTweakMessage("");
-      alert(data.message);
+      // Don't show alert, let the UI show the pending state with accept/reject buttons
     } catch (error) {
       alert("Failed to tweak plan: " + error.message);
     } finally {
@@ -821,7 +843,7 @@ function App() {
 
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${API_URL}/goal/${currentGoal.id}/complete`,
         {
           method: "PUT",
@@ -1138,35 +1160,54 @@ function App() {
             </div>
 
             {planData.status === "pending_acceptance" && (
+              <div className="space-y-3">
+                {planData.modification_note && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>Plan Modified:</strong> {planData.modification_note}
+                    </p>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={acceptPlan}
+                    disabled={loading}
+                    className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    {planData.modification_note ? "Accept Changes" : "Accept Plan"}
+                  </button>
+                  <button
+                    onClick={() => setTweakDialogOpen(true)}
+                    className="flex-1 bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    {planData.modification_note ? "Tweak Again" : "Tweak Plan"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {planData.status === "accepted" && (
               <div className="flex gap-3">
-                <button
-                  onClick={acceptPlan}
-                  disabled={loading}
-                  className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Check className="w-4 h-4" />
-                  Accept Plan
-                </button>
+                {currentGoal.status !== "completed" && (
+                  <button
+                    onClick={completeGoal}
+                    className="flex-1 bg-gradient-to-r from-green-500 to-blue-500 text-white py-2 rounded-lg hover:from-green-600 hover:to-blue-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    Mark Goal as Completed
+                  </button>
+                )}
                 <button
                   onClick={() => setTweakDialogOpen(true)}
-                  className="flex-1 bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+                  className={`${currentGoal.status !== "completed" ? "flex-1" : "w-full"} bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2`}
                 >
                   <Edit2 className="w-4 h-4" />
                   Tweak Plan
                 </button>
               </div>
             )}
-
-            {planData.status === "accepted" &&
-              currentGoal.status !== "completed" && (
-                <button
-                  onClick={completeGoal}
-                  className="w-full bg-gradient-to-r from-green-500 to-blue-500 text-white py-2 rounded-lg hover:from-green-600 hover:to-blue-600 transition-all flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-5 h-5" />
-                  Mark Goal as Completed
-                </button>
-              )}
           </div>
 
           {/* Steps */}
@@ -1208,9 +1249,7 @@ function App() {
                     }`}>
                       {step.title}
                     </h3>
-                    <p className={`mb-2 ${step.completed ? "text-gray-400" : "text-gray-600"}`}>
-                      {step.description}
-                    </p>
+                    <p className="text-gray-600 mb-2">{step.description}</p>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Clock className="w-4 h-4" />
                       <span>{step.duration}</span>
@@ -1234,38 +1273,68 @@ function App() {
         {tweakDialogOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">Tweak Your Plan</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Tweak Your Plan</h3>
                 <button
-                  onClick={() => setTweakDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => {
+                    setTweakDialogOpen(false);
+                    setTweakMessage("");
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <textarea
-                value={tweakMessage}
-                onChange={(e) => setTweakMessage(e.target.value)}
-                placeholder="e.g., Make it more challenging, add more practice time, adjust the remaining steps..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none mb-4"
-                rows="4"
-              />
-              <p className="text-xs text-gray-500 mb-4">
-                Note: Only unchecked (remaining) steps will be modified. Completed steps will be preserved.
-              </p>
+              
+              <div className="mb-4">
+                <label 
+                  htmlFor="tweak-input"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  What would you like to change?
+                </label>
+                <textarea
+                  id="tweak-input"
+                  value={tweakMessage}
+                  onChange={(e) => setTweakMessage(e.target.value)}
+                  placeholder="e.g., Make it more challenging, add more practice time, adjust the remaining steps..."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none transition-all"
+                  rows="4"
+                />
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> Only unchecked (remaining) steps will be modified. Completed steps will be preserved.
+                </p>
+              </div>
+              
               <div className="flex gap-3">
                 <button
-                  onClick={() => setTweakDialogOpen(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                  onClick={() => {
+                    setTweakDialogOpen(false);
+                    setTweakMessage("");
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={tweakPlan}
                   disabled={loading || !tweakMessage.trim()}
-                  className="flex-1 bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 disabled:opacity-50"
+                  className="flex-1 bg-purple-500 text-white py-2 rounded-lg hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
                 >
-                  {loading ? "Tweaking..." : "Apply Changes"}
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Tweaking...
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="w-4 h-4" />
+                      Apply Changes
+                    </>
+                  )}
                 </button>
               </div>
             </div>

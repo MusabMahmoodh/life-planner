@@ -153,14 +153,21 @@ async def tweak_plan(
             final_steps.append(step_copy)
             step_id_counter += 1
         
-        # Update plan in database
+        # Update plan in database - set status to pending_acceptance so user can review
         supabase_admin.table('plans')\
             .update({
                 'title': modified_plan.get('title', plan['title']),
                 'steps': final_steps,
-                'total_steps': len(final_steps)
+                'total_steps': len(final_steps),
+                'status': 'pending_acceptance'  # Set to pending so user can review and accept
             })\
             .eq('goal_id', goal_id)\
+            .execute()
+        
+        # Update goal status to pending_acceptance as well
+        supabase_admin.table('goals')\
+            .update({'status': 'pending_acceptance'})\
+            .eq('id', goal_id)\
             .execute()
         
         # Get updated plan
@@ -181,7 +188,7 @@ async def tweak_plan(
                 "status": updated_plan['status'],
                 "modification_note": modified_plan.get("modification_note", "Plan updated based on your request")
             },
-            message="Plan tweaked successfully"
+            message="Plan has been modified. Please review and accept the changes."
         )
         
     except HTTPException:

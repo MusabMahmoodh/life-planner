@@ -108,15 +108,64 @@ class CoachingAgent:
                 if action.tool == "create_plan":
                     flag = "PLAN_SCREEN"
 
-                    # Create plan in Supabase
+                    # Check if plan already exists
                     plan_dict = tool_result
-                    plan_response = supabase_admin.table('plans').insert({
-                        'goal_id': self.goal['id'],
-                        'title': plan_dict.get('title', f"Your {self.goal['goal_description']} Plan"),
-                        'steps': plan_dict.get('steps', []),
-                        'total_steps': plan_dict.get('total_steps', 0),
-                        'status': 'pending_acceptance'
-                    }).execute()
+                    existing_plan_response = supabase_admin.table('plans')\
+                        .select('*')\
+                        .eq('goal_id', self.goal['id'])\
+                        .limit(1)\
+                        .execute()
+                    
+                    if existing_plan_response.data and len(existing_plan_response.data) > 0:
+                        # Update existing plan - preserve completed steps
+                        existing_plan = existing_plan_response.data[0]
+                        existing_steps = existing_plan.get('steps', [])
+                        new_steps = plan_dict.get('steps', [])
+                        
+                        # Separate completed and remaining steps from existing plan
+                        completed_steps = [step for step in existing_steps if step.get("completed", False)]
+                        remaining_existing_steps = [step for step in existing_steps if not step.get("completed", False)]
+                        
+                        # Merge: keep completed steps, replace remaining with new steps
+                        # Preserve completed steps, use new steps for remaining
+                        final_steps = completed_steps + new_steps
+                        
+                        # Renumber all steps
+                        for idx, step in enumerate(final_steps, 1):
+                            step["id"] = idx
+                        
+                        plan_data_to_save = {
+                            'title': plan_dict.get('title', existing_plan.get('title', f"Your {self.goal['goal_description']} Plan")),
+                            'steps': final_steps,
+                            'total_steps': len(final_steps),
+                            'status': 'pending_acceptance'
+                        }
+                        
+                        # Update existing plan
+                        supabase_admin.table('plans')\
+                            .update(plan_data_to_save)\
+                            .eq('goal_id', self.goal['id'])\
+                            .execute()
+                        # Fetch updated plan
+                        updated_response = supabase_admin.table('plans')\
+                            .select('*')\
+                            .eq('goal_id', self.goal['id'])\
+                            .limit(1)\
+                            .execute()
+                        plan = updated_response.data[0]
+                    else:
+                        # Create new plan
+                        plan_data_to_save = {
+                            'title': plan_dict.get('title', f"Your {self.goal['goal_description']} Plan"),
+                            'steps': plan_dict.get('steps', []),
+                            'total_steps': plan_dict.get('total_steps', 0),
+                            'status': 'pending_acceptance'
+                        }
+                        plan_response = supabase_admin.table('plans').insert({
+                            'goal_id': self.goal['id'],
+                            **plan_data_to_save
+                        }).execute()
+                        plan = plan_response.data[0]
 
                     # Update goal status
                     supabase_admin.table('goals')\
@@ -124,11 +173,11 @@ class CoachingAgent:
                         .eq('id', self.goal['id'])\
                         .execute()
                     
-                    plan = plan_response.data[0]
-                    
                     plan_data = {
                         "plan_id": plan['id'],
                         "title": plan['title'],
+                        "coach_name": self.goal['coach_name'],
+                        "goal": self.goal['goal_description'],
                         "steps": plan['steps'],
                         "total_steps": plan['total_steps'],
                         "status": plan['status']
@@ -136,8 +185,6 @@ class CoachingAgent:
                 
                 # Handle modify_plan tool
                 elif action.tool == "modify_plan":
-                    flag = "PLAN_SCREEN"
-
                     # Get current plan
                     plan_response = supabase_admin.table('plans')\
                         .select('*')\
@@ -146,45 +193,93 @@ class CoachingAgent:
                         .execute()
 
                     if plan_response.data and len(plan_response.data) > 0:
+                        flag = "PLAN_SCREEN"
                         plan = plan_response.data[0]
-
-                        # Modify plan
-                        modified = plan_service.modify_plan_with_agent(
-                            modification_request=tool_result.get("modification_request", ""),
-                            current_plan={
-                                "title": plan['title'],
-                                "steps": plan['steps'],
-                                "total_steps": plan['total_steps']
-                            },
-                            current_step=self.goal['current_step']
-                        )
-
-                        # Update in Supabase
-                        supabase_admin.table('plans')\
-                            .update({
-                                'steps': modified['steps'],
-                                'total_steps': modified['total_steps']
-                            })\
-                            .eq('goal_id', self.goal['id'])\
-                            .execute()
-
-                        # Get updated plan
-                        updated_response = supabase_admin.table('plans')\
-                            .select('*')\
-                            .eq('goal_id', self.goal['id'])\
-                            .limit(1)\
-                            .execute()
-
-                        updated_plan = updated_response.data[0]
                         
-                        plan_data = {
-                            "plan_id": updated_plan['id'],
-                            "title": updated_plan['title'],
-                            "steps": updated_plan['steps'],
-                            "total_steps": updated_plan['total_steps'],
-                            "modification_note": modified.get("modification_note", ""),
-                            "status": updated_plan['status']
-                        }
+                        modification_request = tool_result.get("modification_request", "").strip().lower()
+                        
+                        # Check if this is just a request to show the plan (no specific changes)
+                        show_only_keywords = [
+                            "show the plan",
+                            "show plan",
+                            "see the plan",
+                            "view the plan",
+                            "let's see",
+                            "show me",
+                            "display the plan"
+                        ]
+                        
+                        is_show_only = not modification_request or any(keyword in modification_request for keyword in show_only_keywords)
+                        
+                        if is_show_only:
+                            # Just show the current plan without modifying
+                            plan_data = {
+                                "plan_id": plan['id'],
+                                "title": plan['title'],
+                                "coach_name": self.goal['coach_name'],
+                                "goal": self.goal['goal_description'],
+                                "steps": plan['steps'],
+                                "total_steps": plan['total_steps'],
+                                "status": plan['status']
+                            }
+                        else:
+                            # User provided specific changes - modify the plan
+                            modified = plan_service.modify_plan_with_agent(
+                                modification_request=tool_result.get("modification_request", ""),
+                                current_plan={
+                                    "title": plan['title'],
+                                    "coach_name": plan.get('coach_name', self.goal['coach_name']),
+                                    "goal": self.goal['goal_description'],
+                                    "steps": plan['steps'],
+                                    "total_steps": plan['total_steps']
+                                },
+                                current_step=self.goal['current_step'],
+                                goal_description=self.goal['goal_description']
+                            )
+
+                            # Update in Supabase
+                            update_data = {
+                                'steps': modified['steps'],
+                                'total_steps': modified['total_steps'],
+                                'status': 'pending_acceptance'  # Set to pending after modification
+                            }
+                            
+                            # Update title if it was modified
+                            if 'title' in modified:
+                                update_data['title'] = modified['title']
+                            
+                            supabase_admin.table('plans')\
+                                .update(update_data)\
+                                .eq('goal_id', self.goal['id'])\
+                                .execute()
+
+                            # Update goal status to pending_acceptance
+                            supabase_admin.table('goals')\
+                                .update({'status': 'pending_acceptance'})\
+                                .eq('id', self.goal['id'])\
+                                .execute()
+                            
+                            self.goal['status'] = 'pending_acceptance'
+
+                            # Get updated plan
+                            updated_response = supabase_admin.table('plans')\
+                                .select('*')\
+                                .eq('goal_id', self.goal['id'])\
+                                .limit(1)\
+                                .execute()
+
+                            updated_plan = updated_response.data[0]
+                            
+                            plan_data = {
+                                "plan_id": updated_plan['id'],
+                                "title": modified.get("title", updated_plan['title']),
+                                "coach_name": modified.get("coach_name", self.goal['coach_name']),
+                                "goal": modified.get("goal", self.goal['goal_description']),
+                                "steps": modified['steps'],
+                                "total_steps": modified['total_steps'],
+                                "modification_note": modified.get("modification_note", "Plan updated based on your request"),
+                                "status": "pending_acceptance"
+                            }
         
         # Update stage based on conversation
         if self.goal['status'] == 'onboarding' and "shall we finalize" in output.lower():
