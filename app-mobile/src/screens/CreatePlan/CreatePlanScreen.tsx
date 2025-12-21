@@ -1,28 +1,53 @@
 // src/screens/CreatePlan/CreatePlanScreen.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
+import { useCreateGoal } from '../../hooks/useGoals';
 
 interface CreatePlanScreenProps {
   navigation: any;
 }
 
 export default function CreatePlanScreen({ navigation }: CreatePlanScreenProps) {
-  const [coachName, setCoachName] = useState('');
+  const [coachName, setCoachName] = useState('Alex');
   const [goalText, setGoalText] = useState('');
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  const createGoalMutation = useCreateGoal();
 
   const handleContinue = () => {
-    if (!coachName.trim() || !goalText.trim()) return;
+    if (!coachName.trim() || !goalText.trim()) {
+      setSnackbarMessage('Please fill in all fields');
+      setSnackbarVisible(true);
+      return;
+    }
 
-    // Navigate to same ChatFromPlan screen used for existing plans
-    navigation.navigate('ChatFromPlan', {
-      coachName: coachName.trim(),
-      goalText: goalText.trim(),
-      mode: 'CONVERSATION',
-      plan: null, // No existing plan, creating new one
-    });
+    // Create a new goal in the backend
+    createGoalMutation.mutate(
+      {
+        coach_name: coachName.trim(),
+        goal_description: goalText.trim(),
+      },
+      {
+        onSuccess: (goal) => {
+          // Navigate to chat screen with the created goal
+          navigation.navigate('ChatFromPlan', {
+            goalId: goal.id,
+            coachName: goal.coach_name,
+            goalText: goal.goal_description,
+            mode: 'CONVERSATION',
+            plan: null,
+          });
+        },
+        onError: (error: any) => {
+          setSnackbarMessage(error.message || 'Failed to create goal. Please try again.');
+          setSnackbarVisible(true);
+        },
+      }
+    );
   };
 
   return (
@@ -75,7 +100,8 @@ export default function CreatePlanScreen({ navigation }: CreatePlanScreenProps) 
           <Button
             mode="contained"
             onPress={handleContinue}
-            disabled={!coachName.trim() || !goalText.trim()}
+            disabled={!coachName.trim() || !goalText.trim() || createGoalMutation.isPending}
+            loading={createGoalMutation.isPending}
             style={styles.continueButton}
             buttonColor={COLORS.PRIMARY}
             textColor={COLORS.TEXT_WHITE}
@@ -98,6 +124,19 @@ export default function CreatePlanScreen({ navigation }: CreatePlanScreenProps) 
           </Text>
         </View>
       </View>
+
+      {/* Snackbar for error messages */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        action={{
+          label: 'Dismiss',
+          onPress: () => setSnackbarVisible(false),
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </KeyboardAvoidingView>
   );
 }

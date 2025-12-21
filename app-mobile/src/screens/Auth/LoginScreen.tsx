@@ -1,9 +1,10 @@
 // src/screens/Auth/LoginScreen.tsx
 import React, { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button } from 'react-native-paper';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { Text, TextInput, Button, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
+import { useLogin } from '../../hooks/useAuth';
 
 interface LoginScreenProps {
   navigation: any;
@@ -12,17 +13,31 @@ interface LoginScreenProps {
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+
+  const loginMutation = useLogin();
 
   const handleLogin = async () => {
-    setLoading(true);
+    if (!email || !password) {
+      setSnackbarMessage('Please enter email and password');
+      setSnackbarVisible(true);
+      return;
+    }
 
-    // Simulate login (in production, call your auth API)
-    setTimeout(() => {
-      setLoading(false);
-      // Navigate directly to MainTabs (bottom navigation) after successful login
-      navigation.replace('MainTabs');
-    }, 1000);
+    loginMutation.mutate(
+      { email, password },
+      {
+        onSuccess: (data) => {
+          // Navigate directly to MainTabs (bottom navigation) after successful login
+          navigation.replace('MainTabs');
+        },
+        onError: (error: any) => {
+          setSnackbarMessage(error.message || 'Login failed. Please try again.');
+          setSnackbarVisible(true);
+        },
+      }
+    );
   };
 
   return (
@@ -72,8 +87,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           <Button
             mode="contained"
             onPress={handleLogin}
-            loading={loading}
-            disabled={!email || !password || loading}
+            loading={loginMutation.isPending}
+            disabled={!email || !password || loginMutation.isPending}
             style={styles.loginButton}
             buttonColor={COLORS.PRIMARY}
             textColor={COLORS.TEXT_WHITE}
@@ -96,7 +111,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           <Text style={styles.signupText}>Don't have an account? </Text>
           <Button
             mode="text"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Register')}
             textColor={COLORS.PRIMARY}
             compact
           >
@@ -104,6 +119,19 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           </Button>
         </View>
       </View>
+
+      {/* Snackbar for error messages */}
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        action={{
+          label: 'Dismiss',
+          onPress: () => setSnackbarVisible(false),
+        }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </KeyboardAvoidingView>
   );
 }

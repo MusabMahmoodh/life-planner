@@ -1,102 +1,191 @@
-import React, { useState } from "react";
-import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, SafeAreaView, InteractionManager } from "react-native";
 import { Text, Card, ProgressBar, FAB, Chip } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Goal, GoalTabType } from "../../types";
-import { sampleGoals, userStats } from "../../data/placeholderData";
 import { COLORS, CATEGORY_COLORS } from "../../constants/colors";
 import NewGoalModal, { NewGoalData } from "./components/NewGoalModal";
+import { useGoals, useCreateGoal } from "../../hooks/useGoals";
+import type { Goal as APIGoal } from "../../services/apiClient";
+import { apiClient } from "../../services/apiClient";
 
 export default function GoalsScreen({ navigation }: any) {
   const [selectedTab, setSelectedTab] = useState<GoalTabType>("active");
   const [showNewGoalModal, setShowNewGoalModal] = useState(false);
 
+  // Close and reset modal when screen comes into focus (cleanup from previous navigation)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('GoalsScreen focused');
+      // Always close modal on focus to clean up from navigation
+      if (showNewGoalModal) {
+        console.log('Closing modal on focus');
+        setShowNewGoalModal(false);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, showNewGoalModal]);
+
+  // Fetch goals from API
+  const { data: apiGoals, isLoading, error, refetch } = useGoals();
+  const createGoalMutation = useCreateGoal();
+
+  // Transform API goals to UI format
+  const transformGoalToUI = (apiGoal: APIGoal): Goal => {
+    return {
+      id: apiGoal.id,
+      title: apiGoal.goal_description,
+      description: `Coached by ${apiGoal.coach_name}`,
+      category: "Personal", // Default category, could be enhanced
+      progress: 0, // Would need to calculate from plan steps
+      targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
+      startDate: apiGoal.created_at,
+      priority: "medium" as const,
+      aiCoachingEnabled: true,
+      status: apiGoal.status as "active" | "completed" | "archived",
+      streak: 0, // Would need to track this
+      tasks: [], // Would need to load from plan
+    };
+  };
+
   const getFilteredGoals = (): Goal[] => {
+    if (!apiGoals) return [];
+
+    const transformedGoals = apiGoals.map(transformGoalToUI);
+
     switch (selectedTab) {
       case "active":
-        return sampleGoals.filter((goal) => goal.status === "active");
+        return transformedGoals.filter((goal) => goal.status === "active");
       case "completed":
-        return sampleGoals.filter((goal) => goal.status === "completed");
+        return transformedGoals.filter((goal) => goal.status === "completed");
       case "archived":
-        return sampleGoals.filter((goal) => goal.status === "archived");
+        return transformedGoals.filter((goal) => goal.status === "archived");
       default:
-        return sampleGoals;
+        return transformedGoals;
     }
   };
 
   const filteredGoals = getFilteredGoals();
 
+  // Calculate stats from API goals
+  const userStats = {
+    activeGoals: apiGoals?.filter(g => g.status === 'active').length || 0,
+    completedGoals: apiGoals?.filter(g => g.status === 'completed').length || 0,
+    currentStreak: 0, // Would need to track this
+  };
+
   const handleNewGoal = (goalData: NewGoalData) => {
-    // AI will generate the full goal details from coach name and goal title
-    console.log("New goal created with AI:", goalData);
-    setShowNewGoalModal(false);
-    // In a real app, you would:
-    // 1. Send coach name + goal to AI backend
-    // 2. AI generates: category, priority, milestones, coaching plan
-    // 3. Update the goals list with AI-generated goal
-    // 4. Show a success message
-  };
+    // Don't close modal yet - let the API call complete first
+    // This prevents the black screen issue
 
-  const handleNavigateToChat = (goalData: NewGoalData) => {
-    setShowNewGoalModal(false);
-    // Navigate to unified ChatFromPlan screen (same as existing plans)
-    navigation.getParent()?.navigate('ChatFromPlan', {
-      coachName: goalData.coachName,
-      goalText: goalData.title,
-      mode: 'CONVERSATION',
-      plan: null,
-    });
-  };
+    // Create goal via API and navigate directly to chat
+    createGoalMutation.mutate(
+      {
+        coach_name: goalData.coachName,
+        goal_description: goalData.title,
+      },
+      {
+        onSuccess: (goal) => {
+          console.log(`[${new Date().toISOString()}] 2. API Success - goal created`);
+          console.log(`[${new Date().toISOString()}] 3. Navigating to ChatFromPlan NOW`);
 
-  const handleGoalPress = (goal: Goal) => {
-    // Navigate to PlanDetail screen instead of showing modal
+          // Navigate immediately
+          // Use getParent() twice to go from GoalsStack -> RootNavigator -> AppNavigator
+          navigation.getParent()?.getParent()?.navigate('ChatFromPlan', {
+            goalId: goal.id,
+            coachName: goal.coach_name,
+            goalText: goal.goal_description,
+          });
 
-    // Calculate duration safely
-    let totalDuration = '12 weeks'; // Default
-    try {
-      const startTime = new Date(goal.startDate).getTime();
-      const targetTime = new Date(goal.targetDate).getTime();
-      if (!isNaN(startTime) && !isNaN(targetTime)) {
-        const weeks = Math.ceil((targetTime - startTime) / (1000 * 60 * 60 * 24 * 7));
-        if (weeks > 0) {
-          totalDuration = `${weeks} weeks`;
-        }
+          console.log(`[${new Date().toISOString()}] 4. Waiting for navigation animation to complete`);
+          // Close modal AFTER all navigation animations/interactions complete
+          // This prevents remounts while keeping the overlay visible during transition
+          InteractionManager.runAfterInteractions(() => {
+            console.log(`[${new Date().toISOString()}] 5. Navigation complete - closing modal now`);
+            setShowNewGoalModal(false);
+          });
+        },
+        onError: (error: any) => {
+          console.error('Failed to create goal:', error);
+          // Keep modal open on error so user can try again
+        },
       }
-    } catch (e) {
-      console.log('Error calculating duration:', e);
+    );
+  };
+
+  // Removed handleNavigateToChat - not needed anymore
+  // All navigation is handled in handleNewGoal
+
+  const handleGoalPress = async (goal: Goal) => {
+    // Fetch full goal details including plan from API
+    try {
+      const response = await apiClient.getGoalDetails(goal.id);
+
+      if (response.error) {
+        console.error("Failed to fetch goal details:", response.error);
+        return;
+      }
+
+      const goalDetail = response.data!;
+
+      // If goal has a plan, navigate to plan detail
+      if (goalDetail.plan && goalDetail.plan.steps && goalDetail.plan.steps.length > 0) {
+        // Calculate duration
+        let totalDuration = '12 weeks'; // Default
+        try {
+          const startTime = new Date(goalDetail.created_at).getTime();
+          const now = Date.now();
+          const weeks = Math.ceil((now - startTime) / (1000 * 60 * 60 * 24 * 7));
+          if (weeks > 0) {
+            totalDuration = `${weeks} weeks`;
+          }
+        } catch (e) {
+          console.log('Error calculating duration:', e);
+        }
+
+        // Calculate progress
+        const completedSteps = goalDetail.plan.steps.filter(s => s.completed).length;
+        const progress = Math.round((completedSteps / goalDetail.plan.steps.length) * 100);
+
+        const planData = {
+          id: goalDetail.id,
+          title: goalDetail.goal_description,
+          coachName: goalDetail.coach_name,
+          steps: goalDetail.plan.steps.map((step) => ({
+            id: step.id.toString(),
+            title: step.title,
+            duration: step.duration,
+            completed: step.completed,
+            order: step.id,
+          })),
+          totalDuration,
+          progress,
+          category: goal.category,
+          status: goalDetail.status,
+        };
+
+        // Use getParent() twice to go from GoalsStack -> RootNavigator -> AppNavigator
+        navigation.getParent()?.getParent()?.navigate('PlanDetail', { plan: planData, goalId: goalDetail.id });
+      } else {
+        // If no plan exists, navigate to chat to create one
+        // Use getParent() twice to go from GoalsStack -> RootNavigator -> AppNavigator
+        navigation.getParent()?.getParent()?.navigate('ChatFromPlan', {
+          goalId: goalDetail.id,
+          coachName: goalDetail.coach_name,
+          goalText: goalDetail.goal_description,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to open goal:", error);
     }
-
-    const planData = {
-      id: goal.id,
-      title: goal.title,
-      coachName: 'Coach AI', // You can add coachName to Goal type later
-      steps: goal.tasks && goal.tasks.length > 0
-        ? goal.tasks.map((task, index) => ({
-            id: task.id,
-            title: task.title,
-            duration: '1 week',
-            completed: task.completed,
-            order: index + 1,
-          }))
-        : [
-            { id: '1', title: 'Get started with your goal', duration: '1 week', completed: false, order: 1 },
-            { id: '2', title: 'Make consistent progress', duration: '2 weeks', completed: false, order: 2 },
-            { id: '3', title: 'Achieve your goal', duration: '4 weeks', completed: false, order: 3 },
-          ],
-      totalDuration,
-      progress: goal.progress || 0,
-      category: goal.category,
-    };
-
-    // Navigate to PlanDetail in parent navigator (AppNavigator)
-    navigation.getParent()?.navigate('PlanDetail', { plan: planData });
   };
 
 
   return (
-    <View style={styles.container}>
-      {/* Stats Header */}
-      <View style={styles.statsContainer}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* Stats Header */}
+        <View style={styles.statsContainer}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{userStats.activeGoals}</Text>
           <Text style={styles.statLabel}>Active</Text>
@@ -168,8 +257,32 @@ export default function GoalsScreen({ navigation }: any) {
       <ScrollView
         style={styles.goalsList}
         contentContainerStyle={styles.goalsContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => refetch()}
+            colors={[COLORS.PRIMARY]}
+          />
+        }
       >
-        {filteredGoals.length === 0 ? (
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+            <Text style={styles.emptyStateMessage}>Loading goals...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={80}
+              color={COLORS.DANGER}
+            />
+            <Text style={styles.emptyStateTitle}>Error loading goals</Text>
+            <Text style={styles.emptyStateMessage}>
+              {error.message || 'Something went wrong'}
+            </Text>
+          </View>
+        ) : filteredGoals.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
               name="target"
@@ -208,11 +321,11 @@ export default function GoalsScreen({ navigation }: any) {
           setShowNewGoalModal(false);
         }}
         onSave={handleNewGoal}
-        onNavigateToChat={handleNavigateToChat}
       />
 
       {/* Removed GoalDetailModal - navigating to PlanDetail page instead */}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -324,6 +437,10 @@ const GoalCard: React.FC<GoalCardProps> = ({ goal, onPress }) => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.CARD,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
@@ -333,7 +450,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     alignItems: "center",
     backgroundColor: COLORS.CARD,
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.BORDER,
@@ -361,17 +478,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.CARD,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.BORDER,
-    maxHeight: 44,
+    maxHeight: 52,
   },
   tabContent: {
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
   },
   tab: {
     backgroundColor: COLORS.BACKGROUND,
-    marginRight: 6,
-    height: 32,
+    height: 36,
   },
   activeTab: {
     backgroundColor: COLORS.PRIMARY,
@@ -388,15 +504,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   goalsContent: {
-    paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: 6,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 80,
   },
   goalCard: {
-    marginBottom: 8,
+    marginBottom: 12,
     backgroundColor: COLORS.CARD,
-    elevation: 1,
-    borderRadius: 8,
+    elevation: 2,
+    borderRadius: 12,
   },
   cardContent: {
     paddingVertical: 12,

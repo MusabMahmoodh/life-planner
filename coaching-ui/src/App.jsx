@@ -408,8 +408,8 @@ import {
   X,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000/api";
-const API_TIMEOUT = 40000; // 40 seconds
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT) || 40000; // 40 seconds
 
 // Helper function to add timeout to fetch requests
 const fetchWithTimeout = (url, options = {}) => {

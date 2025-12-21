@@ -18,7 +18,6 @@ interface NewGoalModalProps {
   visible: boolean;
   onDismiss: () => void;
   onSave: (goalData: NewGoalData) => void;
-  onNavigateToChat?: (goalData: NewGoalData) => void;
 }
 
 export interface NewGoalData {
@@ -30,7 +29,6 @@ export default function NewGoalModal({
   visible,
   onDismiss,
   onSave,
-  onNavigateToChat,
 }: NewGoalModalProps) {
   const [coachName, setCoachName] = useState("");
   const [title, setTitle] = useState("");
@@ -78,44 +76,50 @@ export default function NewGoalModal({
               useNativeDriver: true,
             }),
           ]),
-        ]),
+        ])
       );
       animation.start();
       return () => animation.stop();
     }
   }, [isGenerating, dot1Opacity, dot2Opacity, dot3Opacity]);
 
+  // Reset form when modal is closed
+  // Use a longer delay to ensure navigation is completely stable
+  useEffect(() => {
+    if (!visible) {
+      console.log(`[${new Date().toISOString()}] 5. Modal visible=FALSE, will reset in 3000ms`);
+      // Long delay to allow navigation to fully complete and stabilize
+      // This prevents ChatConversationScreen from remounting when modal unmounts
+      const timer = setTimeout(() => {
+        resetForm();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
   const handleSave = async () => {
     if (!coachName.trim() || !title.trim()) {
       return;
     }
 
-    // Show AI generation animation
-    setIsGenerating(true);
+    console.log(`[${new Date().toISOString()}] 1. Create Goal clicked - showing animation`);
 
-    // Simulate AI processing time
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    // Show full-screen AI generating animation
+    setIsGenerating(true);
 
     const goalData: NewGoalData = {
       coachName: coachName.trim(),
       title: title.trim(),
     };
 
-    // Save and navigate to chat screen while animation is still showing
+    // Call parent to create goal via API
+    // Parent will handle everything including navigation
+    // DO NOT call onNavigateToChat - it causes duplicate navigation!
     onSave(goalData);
-
-    if (onNavigateToChat) {
-      onNavigateToChat(goalData);
-    }
-
-    // Small delay to ensure navigation starts, then clean up
-    setTimeout(() => {
-      setIsGenerating(false);
-      resetForm();
-    }, 100);
   };
 
   const resetForm = () => {
+    console.log(`[${new Date().toISOString()}] 6. Resetting form - isGenerating now FALSE`);
     setCoachName("");
     setTitle("");
     setIsGenerating(false);
@@ -126,7 +130,15 @@ export default function NewGoalModal({
     onDismiss();
   };
 
-  if (!visible && !isGenerating) return null;
+  // Keep rendering if generating (even if not visible) to prevent flash during navigation
+  if (!visible && !isGenerating) {
+    console.log(`[${new Date().toISOString()}] 7. Modal unmounting (visible=FALSE, isGenerating=FALSE)`);
+    return null;
+  }
+
+  if (!visible && isGenerating) {
+    console.log(`[${new Date().toISOString()}] Modal still showing overlay (visible=FALSE but isGenerating=TRUE)`);
+  }
 
   return (
     <>
@@ -231,9 +243,8 @@ export default function NewGoalModal({
                     buttonColor={COLORS.PRIMARY}
                     textColor={COLORS.TEXT_WHITE}
                     disabled={!coachName.trim() || !title.trim() || isGenerating}
-                    loading={isGenerating}
                   >
-                    {isGenerating ? "Generating..." : "Create Goal"}
+                    Create Goal
                   </Button>
                 </View>
               </KeyboardAvoidingView>
@@ -242,20 +253,19 @@ export default function NewGoalModal({
         </Pressable>
       </Modal>
 
-      {/* Full Screen AI Generating Modal */}
+      {/* Full Screen AI Generating Animation */}
       {isGenerating && (
         <Modal
           visible={true}
           animationType="fade"
-          transparent={true}
+          transparent={false}
           onRequestClose={() => {}}
-          statusBarTranslucent
         >
           <View style={styles.fullScreenOverlay}>
             <View style={styles.generatingContent}>
               <MaterialCommunityIcons
                 name="creation"
-                size={64}
+                size={80}
                 color={COLORS.PRIMARY}
                 style={styles.generatingIcon}
               />
@@ -263,7 +273,7 @@ export default function NewGoalModal({
                 AI is generating your goal...
               </Text>
               <Text style={styles.generatingSubtitle}>
-                Creating category, milestones & coaching plan
+                Creating personalized coaching plan
               </Text>
               <View style={styles.dotsContainer}>
                 <Animated.View

@@ -1,312 +1,201 @@
 // src/screens/Chat/ChatConversationScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
-import { Text, TextInput, IconButton, Button, ProgressBar } from 'react-native-paper';
+import { Text, TextInput, IconButton, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
-
-type ConversationMode = 'CONVERSATION' | 'PLAN_SCREEN';
+import { useSendMessage, useChatHistory } from '../../hooks/useChat';
 
 interface ChatConversationScreenProps {
   route: {
     params: {
-      coachName?: string;
-      goalText?: string;
+      goalId: string;
+      coachName: string;
+      goalText: string;
+      mode?: string;
       plan?: any;
-      mode: ConversationMode;
     };
   };
   navigation: any;
 }
 
 interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
 }
 
 export default function ChatConversationScreen({
   route,
   navigation,
 }: ChatConversationScreenProps) {
-  const { coachName, goalText, plan, mode } = route.params;
+  const { goalId, coachName, goalText } = route.params;
 
-  // Initial message based on mode
-  const getInitialMessage = (): Message => {
-    if (mode === 'CONVERSATION') {
-      return {
-        id: '1',
-        text: `Hi! I'm ${coachName}, your AI coach. I'm excited to help you achieve: "${goalText}". Let me ask you a few questions so I can create the perfect plan for you.\n\nFirst, what's your current experience level with this goal?`,
-        isUser: false,
-        timestamp: new Date(),
-      };
-    } else {
-      // PLAN_SCREEN mode
-      return {
-        id: '1',
-        text: `Hey! You're doing great with "${plan?.title}". How can I help you today?`,
-        isUser: false,
-        timestamp: new Date(),
-      };
-    }
-  };
+  console.log(`[${new Date().toISOString()}] ChatConversationScreen MOUNTED`);
 
-  const [messages, setMessages] = useState<Message[]>([getInitialMessage()]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [welcomeMessage, setWelcomeMessage] = useState<string>('');
   const [inputText, setInputText] = useState('');
-  const [showFinalize, setShowFinalize] = useState(false);
-  const [conversationRound, setConversationRound] = useState(1);
-  const [viewMode, setViewMode] = useState<'chat' | 'plan'>('chat'); // Toggle between chat and plan view
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  // For PLAN_SCREEN mode, always show toggle. For CONVERSATION mode, show after data collection
-  const canShowToggle = mode === 'PLAN_SCREEN' || conversationRound >= 2;
+  const sendMessageMutation = useSendMessage();
+  const { data: chatHistory, isLoading: isLoadingHistory } = useChatHistory(goalId);
 
-  // Get the current plan to display (either from params or mock for conversation mode)
-  const currentPlanToShow = mode === 'PLAN_SCREEN' ? plan : {
-    title: goalText,
-    coachName: coachName,
-    steps: [
-      { id: '1', title: 'Get proper running shoes', duration: '1 day', completed: false },
-      { id: '2', title: 'Start with 2km runs, 3 times a week', duration: '2 weeks', completed: false },
-      { id: '3', title: 'Gradually increase to 5km runs', duration: '3 weeks', completed: false },
-      { id: '4', title: 'Build endurance with 10km runs', duration: '4 weeks', completed: false },
-      { id: '5', title: 'Practice half-marathon distance', duration: '6 weeks', completed: false },
-      { id: '6', title: 'Complete marathon training plan', duration: '8 weeks', completed: false },
-    ],
-    totalDuration: '24 weeks',
-    progress: 0,
-  };
+  // Load chat history when component mounts
+  useEffect(() => {
+    if (chatHistory) {
+      setMessages(chatHistory.messages || []);
+      setWelcomeMessage(chatHistory.welcome_message || '');
+    }
+  }, [chatHistory]);
+
+  useEffect(() => {
+    // Auto-scroll to bottom when new messages arrive
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  }, [messages]);
 
   const handleSend = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || sendMessageMutation.isPending) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      isUser: true,
-      timestamp: new Date(),
+    const userMessage: Message = {
+      role: 'user',
+      content: inputText.trim(),
+      created_at: new Date().toISOString(),
     };
 
-    setMessages([...messages, newMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    const messageToSend = inputText.trim();
     setInputText('');
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(newMessage.text);
-      setMessages((prev) => [...prev, aiResponse]);
+    // Send message to API
+    sendMessageMutation.mutate(
+      { goalId, message: messageToSend },
+      {
+        onSuccess: (data) => {
+          // Add AI response to messages
+          const aiMessage: Message = {
+            role: 'assistant',
+            content: data.message,
+            created_at: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, aiMessage]);
 
-      // After a few rounds, ask if ready to finalize
-      if (mode === 'CONVERSATION' && conversationRound >= 2) {
-        setTimeout(() => {
-          setShowFinalize(true);
-        }, 500);
-      }
-      setConversationRound((prev) => prev + 1);
-    }, 1000);
-  };
-
-  const generateAIResponse = (userMessage: string): Message => {
-    const lowerMessage = userMessage.toLowerCase();
-
-    if (mode === 'PLAN_SCREEN') {
-      // Check if user is confirming to generate plan
-      const confirmationKeywords = ['ok', 'okay', 'yes', 'sure', 'sounds good', 'looks good', 'perfect', 'great', 'do it', 'go ahead', 'proceed', 'generate'];
-      const isConfirming = confirmationKeywords.some(keyword => lowerMessage.includes(keyword));
-
-      if (isConfirming && messages.length > 2) {
-        // User is confirming, trigger plan generation
-        setTimeout(() => {
-          navigation.navigate('Generating', {
-            planData: {
-              plan,
-              modifications: messages,
-            },
-            isUpdate: true,
-          });
-        }, 1500);
-
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'Perfect! Let me generate your updated plan with these changes...',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      }
-
-      // Handle plan modification requests
-      if (
-        lowerMessage.includes('skip') ||
-        lowerMessage.includes('boring') ||
-        lowerMessage.includes('remove')
-      ) {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'I understand you want to adjust your plan. Let me recalculate the remaining steps to better fit your needs. Just say "okay" when you\'re ready and I\'ll generate the updated plan!',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      } else if (lowerMessage.includes('change') || lowerMessage.includes('adjust')) {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'Great! Tell me what changes you\'d like to make, and I\'ll adjust the plan accordingly. When you\'re satisfied, just say "okay"!',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      } else {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'That\'s a great question! I\'m here to support you. What specific help do you need?',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      }
-    } else {
-      // CONVERSATION mode - collecting data
-      if (conversationRound === 1) {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'Perfect! Now, how much time can you dedicate to this goal each week?',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      } else if (conversationRound === 2) {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'Excellent! One more thing - when would you like to achieve this goal by?',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      } else {
-        return {
-          id: (Date.now() + 1).toString(),
-          text: 'That sounds perfect! I think I have enough information to create an amazing plan for you.',
-          isUser: false,
-          timestamp: new Date(),
-        };
-      }
-    }
-  };
-
-  const handleFinalizePlan = () => {
-    // Navigate to Generating screen
-    navigation.navigate('Generating', {
-      planData: {
-        coachName,
-        goalText,
-        conversationData: messages,
-      },
-      isUpdate: false,
-    });
-  };
-
-  const handleContinueConversation = () => {
-    setShowFinalize(false);
-    const aiMessage: Message = {
-      id: Date.now().toString(),
-      text: 'Sure! What else would you like to tell me about your goal?',
-      isUser: false,
-      timestamp: new Date(),
-    };
-    setMessages([...messages, aiMessage]);
-  };
-
-  const handleModifyPlan = () => {
-    if (!inputText.trim()) {
-      // If no message typed, just navigate to generating with existing modifications
-      navigation.navigate('Generating', {
-        planData: {
-          plan,
-          modifications: messages,
+          // Check if plan is ready
+          if (data.plan_ready || data.flag === 'PLAN_SCREEN') {
+            // Navigate to plan confirmation screen after a short delay
+            setTimeout(() => {
+              navigation.replace('PlanConfirmation', {
+                goalId,
+                plan: data.plan_data,
+                coachName,
+                goalText,
+              });
+            }, 1000);
+          }
         },
-        isUpdate: true,
-      });
-    } else {
-      // Send the message first, then navigate
-      handleSend();
-      setTimeout(() => {
-        navigation.navigate('Generating', {
-          planData: {
-            plan,
-            modifications: messages,
-          },
-          isUpdate: true,
-        });
-      }, 1500);
-    }
+        onError: (error: any) => {
+          // Add error message
+          const errorMessage: Message = {
+            role: 'assistant',
+            content: `Sorry, something went wrong: ${error.message}. Please try again.`,
+            created_at: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        },
+      }
+    );
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <IconButton
-          icon="arrow-left"
-          size={24}
-          onPress={() => navigation.goBack()}
-          iconColor={COLORS.TEXT_WHITE}
-        />
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons
-            name="robot"
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <IconButton
+            icon="arrow-left"
+            iconColor={COLORS.TEXT_PRIMARY}
             size={24}
-            color={COLORS.TEXT_WHITE}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
           />
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerTitle}>
-              {mode === 'CONVERSATION' ? coachName : plan?.coachName}
-            </Text>
-            <Text style={styles.headerSubtitle}>AI Coach</Text>
+          <View style={styles.headerContent}>
+            <View style={styles.coachAvatar}>
+              <MaterialCommunityIcons name="robot" size={24} color={COLORS.PRIMARY} />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle} numberOfLines={1}>{coachName}</Text>
+              <Text style={styles.headerSubtitle}>AI Coach</Text>
+            </View>
           </View>
         </View>
-        {canShowToggle && (
-          <IconButton
-            icon={viewMode === 'chat' ? 'format-list-bulleted' : 'chat'}
-            size={24}
-            onPress={() => setViewMode(viewMode === 'chat' ? 'plan' : 'chat')}
-            iconColor={COLORS.TEXT_WHITE}
-          />
-        )}
-      </View>
 
-      {/* Messages or Plan View */}
+      {/* Messages */}
       <ScrollView
+        ref={scrollViewRef}
         style={styles.messagesContainer}
         contentContainerStyle={styles.messagesContent}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        {viewMode === 'chat' ? (
-          // Chat Messages View
-          <>
-            {messages.map((message) => (
-          <View
-            key={message.id}
-            style={[
-              styles.messageBubble,
-              message.isUser ? styles.userMessage : styles.aiMessage,
-            ]}
-          >
-            {!message.isUser && (
+        {/* Loading indicator */}
+        {isLoadingHistory && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+            <Text style={styles.loadingText}>Loading chat history...</Text>
+          </View>
+        )}
+
+        {/* Welcome Message */}
+        {!isLoadingHistory && welcomeMessage && (
+          <View style={[styles.messageBubble, styles.aiBubble]}>
+            <View style={styles.aiIcon}>
               <MaterialCommunityIcons
                 name="robot"
-                size={20}
-                color={COLORS.SECONDARY}
-                style={styles.messageIcon}
+                size={16}
+                color={COLORS.PRIMARY}
               />
+            </View>
+            <View style={[styles.messageContent, styles.aiMessageContent, styles.welcomeMessageContent]}>
+              <Text style={[styles.messageText, styles.aiMessageText]}>
+                {welcomeMessage}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {!isLoadingHistory && messages.map((message, index) => (
+          <View
+            key={`${message.created_at}-${index}`}
+            style={[
+              styles.messageBubble,
+              message.role === 'user' ? styles.userBubble : styles.aiBubble,
+            ]}
+          >
+            {message.role === 'assistant' && (
+              <View style={styles.aiIcon}>
+                <MaterialCommunityIcons
+                  name="robot"
+                  size={16}
+                  color={COLORS.PRIMARY}
+                />
+              </View>
             )}
             <View
               style={[
                 styles.messageContent,
-                message.isUser
+                message.role === 'user'
                   ? styles.userMessageContent
                   : styles.aiMessageContent,
               ]}
@@ -314,130 +203,29 @@ export default function ChatConversationScreen({
               <Text
                 style={[
                   styles.messageText,
-                  message.isUser ? styles.userMessageText : styles.aiMessageText,
+                  message.role === 'user'
+                    ? styles.userMessageText
+                    : styles.aiMessageText,
                 ]}
               >
-                {message.text}
-              </Text>
-              <Text
-                style={[
-                  styles.messageTime,
-                  message.isUser ? styles.userMessageTime : styles.aiMessageTime,
-                ]}
-              >
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {message.content}
               </Text>
             </View>
           </View>
-            ))}
+        ))}
 
-            {/* Finalize Prompt in Chat View */}
-            {showFinalize && mode === 'CONVERSATION' && (
-              <View style={styles.finalizeContainer}>
-                <Text style={styles.finalizeText}>
-                  All data collected. Shall we finalize the plan?
-                </Text>
-                <View style={styles.finalizeButtons}>
-                  <Button
-                    mode="outlined"
-                    onPress={handleContinueConversation}
-                    style={styles.finalizeButton}
-                    textColor={COLORS.PRIMARY}
-                  >
-                    No, Continue
-                  </Button>
-                  <Button
-                    mode="contained"
-                    onPress={handleFinalizePlan}
-                    style={styles.finalizeButton}
-                    buttonColor={COLORS.SUCCESS}
-                  >
-                    Yes, Generate Plan
-                  </Button>
-                </View>
-              </View>
-            )}
-          </>
-        ) : (
-          // Current Plan Detail View
-          <View style={styles.planDetailContainer}>
-            <View style={styles.planDetailHeader}>
+        {/* Loading indicator */}
+        {sendMessageMutation.isPending && (
+          <View style={[styles.messageBubble, styles.aiBubble]}>
+            <View style={styles.aiIcon}>
               <MaterialCommunityIcons
-                name="target"
-                size={32}
+                name="robot"
+                size={16}
                 color={COLORS.PRIMARY}
               />
-              <Text style={styles.planDetailTitle}>{currentPlanToShow.title}</Text>
-              <Text style={styles.planDetailSubtitle}>
-                by {currentPlanToShow.coachName}
-              </Text>
             </View>
-
-            <View style={styles.planDetailContent}>
-              <View style={styles.planDetailInfo}>
-                <MaterialCommunityIcons
-                  name="calendar"
-                  size={20}
-                  color={COLORS.PRIMARY}
-                />
-                <Text style={styles.planDetailDuration}>
-                  Duration: {currentPlanToShow.totalDuration}
-                </Text>
-              </View>
-
-              {currentPlanToShow.progress !== undefined && (
-                <View style={styles.planDetailProgress}>
-                  <Text style={styles.planDetailProgressText}>
-                    Progress: {currentPlanToShow.progress}%
-                  </Text>
-                  <ProgressBar
-                    progress={currentPlanToShow.progress / 100}
-                    color={COLORS.SUCCESS}
-                    style={styles.planDetailProgressBar}
-                  />
-                </View>
-              )}
-
-              <Text style={styles.planDetailStepsTitle}>Action Steps</Text>
-              {currentPlanToShow.steps?.map((step: any, index: number) => (
-                <View key={step.id} style={styles.planDetailStep}>
-                  <View
-                    style={[
-                      styles.planDetailStepNumber,
-                      step.completed && styles.planDetailStepNumberCompleted,
-                    ]}
-                  >
-                    {step.completed ? (
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={14}
-                        color={COLORS.TEXT_WHITE}
-                      />
-                    ) : (
-                      <Text style={styles.planDetailStepNumberText}>{index + 1}</Text>
-                    )}
-                  </View>
-                  <View style={styles.planDetailStepContent}>
-                    <Text
-                      style={[
-                        styles.planDetailStepText,
-                        step.completed && styles.planDetailStepTextCompleted,
-                      ]}
-                    >
-                      {step.title}
-                    </Text>
-                    <Text style={styles.planDetailStepDuration}>{step.duration}</Text>
-                  </View>
-                  <MaterialCommunityIcons
-                    name={step.completed ? 'check-circle' : 'circle-outline'}
-                    size={20}
-                    color={step.completed ? COLORS.SUCCESS : COLORS.TEXT_TERTIARY}
-                  />
-                </View>
-              ))}
+            <View style={[styles.messageContent, styles.aiMessageContent]}>
+              <ActivityIndicator size="small" color={COLORS.PRIMARY} />
             </View>
           </View>
         )}
@@ -446,29 +234,40 @@ export default function ChatConversationScreen({
       {/* Input */}
       <View style={styles.inputContainer}>
         <TextInput
-          mode="outlined"
-          placeholder={mode === 'PLAN_SCREEN' ? "Tell me what to change, or say 'okay' to generate..." : "Type your message..."}
+          style={styles.input}
+          placeholder="Type your message..."
           value={inputText}
           onChangeText={setInputText}
-          style={styles.input}
+          multiline
+          maxLength={500}
+          mode="outlined"
           outlineColor={COLORS.BORDER}
           activeOutlineColor={COLORS.PRIMARY}
-          multiline
-          right={
-            <TextInput.Icon
-              icon="send"
-              onPress={handleSend}
-              disabled={!inputText.trim()}
-              color={inputText.trim() ? COLORS.PRIMARY : COLORS.TEXT_TERTIARY}
-            />
-          }
+          disabled={sendMessageMutation.isPending}
+        />
+        <IconButton
+          icon="send"
+          iconColor={COLORS.TEXT_WHITE}
+          size={24}
+          onPress={handleSend}
+          disabled={!inputText.trim() || sendMessageMutation.isPending}
+          style={[
+            styles.sendButton,
+            (!inputText.trim() || sendMessageMutation.isPending) &&
+              styles.sendButtonDisabled,
+          ]}
         />
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.CARD,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
@@ -476,69 +275,105 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.PRIMARY,
+    backgroundColor: COLORS.CARD,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    paddingVertical: 8,
-    paddingTop: Platform.OS === 'ios' ? 50 : 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+    minHeight: 60,
+  },
+  backButton: {
+    margin: 0,
   },
   headerContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    marginRight: 8,
   },
-  headerTextContainer: {
+  coachAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.PRIMARY_LIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  headerText: {
     flex: 1,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: COLORS.TEXT_WHITE,
-    opacity: 0.8,
+    fontSize: 12,
+    color: COLORS.TEXT_SECONDARY,
   },
   messagesContainer: {
     flex: 1,
   },
   messagesContent: {
     padding: 16,
-    gap: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
   },
   messageBubble: {
     flexDirection: 'row',
+    marginBottom: 16,
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 8,
   },
-  userMessage: {
-    flexDirection: 'row-reverse',
+  userBubble: {
+    justifyContent: 'flex-end',
   },
-  aiMessage: {
-    flexDirection: 'row',
+  aiBubble: {
+    justifyContent: 'flex-start',
   },
-  messageIcon: {
+  aiIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.PRIMARY_LIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
     marginTop: 4,
   },
   messageContent: {
     maxWidth: '75%',
-    borderRadius: 16,
     padding: 12,
+    borderRadius: 16,
   },
   userMessageContent: {
     backgroundColor: COLORS.PRIMARY,
+    borderBottomRightRadius: 4,
   },
   aiMessageContent: {
     backgroundColor: COLORS.CARD,
+    borderBottomLeftRadius: 4,
+  },
+  welcomeMessageContent: {
+    backgroundColor: COLORS.PRIMARY_LIGHT,
     borderWidth: 1,
-    borderColor: COLORS.BORDER,
+    borderColor: COLORS.PRIMARY,
   },
   messageText: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 20,
-    marginBottom: 4,
   },
   userMessageText: {
     color: COLORS.TEXT_WHITE,
@@ -546,158 +381,26 @@ const styles = StyleSheet.create({
   aiMessageText: {
     color: COLORS.TEXT_PRIMARY,
   },
-  messageTime: {
-    fontSize: 11,
-  },
-  userMessageTime: {
-    color: COLORS.TEXT_WHITE,
-    opacity: 0.7,
-    textAlign: 'right',
-  },
-  aiMessageTime: {
-    color: COLORS.TEXT_SECONDARY,
-  },
-  finalizeContainer: {
-    backgroundColor: COLORS.CARD,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    borderWidth: 2,
-    borderColor: COLORS.SUCCESS,
-  },
-  planDetailContainer: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  planDetailHeader: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    backgroundColor: COLORS.CARD,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 20,
-    borderRadius: 12,
-  },
-  planDetailTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_PRIMARY,
-    marginTop: 12,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  planDetailSubtitle: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  planDetailContent: {
-    paddingHorizontal: 16,
-  },
-  planDetailInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.DIVIDER,
-  },
-  planDetailDuration: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
-  },
-  planDetailProgress: {
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.DIVIDER,
-  },
-  planDetailProgressText: {
-    fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: 8,
-  },
-  planDetailProgressBar: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.BORDER,
-  },
-  planDetailStepsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 16,
-  },
-  planDetailStep: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    backgroundColor: COLORS.CARD,
-    padding: 12,
-    borderRadius: 12,
-  },
-  planDetailStepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  planDetailStepNumberCompleted: {
-    backgroundColor: COLORS.SUCCESS,
-  },
-  planDetailStepNumberText: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
-  },
-  planDetailStepContent: {
-    flex: 1,
-  },
-  planDetailStepText: {
-    fontSize: 14,
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 2,
-  },
-  planDetailStepTextCompleted: {
-    textDecorationLine: 'line-through',
-    color: COLORS.TEXT_SECONDARY,
-  },
-  planDetailStepDuration: {
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  finalizeText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  finalizeButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  finalizeButton: {
-    flex: 1,
-  },
   inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     padding: 12,
     backgroundColor: COLORS.CARD,
     borderTopWidth: 1,
     borderTopColor: COLORS.BORDER,
   },
   input: {
-    backgroundColor: COLORS.BACKGROUND,
-    fontSize: 15,
+    flex: 1,
     maxHeight: 100,
-    marginBottom: 8,
+    marginRight: 8,
+    backgroundColor: COLORS.BACKGROUND,
   },
-  modifyButton: {
-    marginTop: 4,
+  sendButton: {
+    backgroundColor: COLORS.PRIMARY,
+    margin: 0,
+  },
+  sendButtonDisabled: {
+    backgroundColor: COLORS.TEXT_TERTIARY,
+    opacity: 0.5,
   },
 });

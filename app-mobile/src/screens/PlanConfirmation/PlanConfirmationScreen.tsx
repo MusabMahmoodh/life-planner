@@ -1,45 +1,64 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text, Button, Card, Chip } from 'react-native-paper';
+import React, { useState } from 'react';
+import { View, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import { Text, Button, Card, Chip, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
+import { useAcceptPlan } from '../../hooks/useGoals';
 
 interface PlanConfirmationScreenProps {
   navigation: any;
   route: {
     params: {
-      planData: any;
+      goalId: string;
+      plan: any;
+      coachName: string;
+      goalText: string;
       isUpdate?: boolean;
     };
   };
 }
 
-// Mock generated plan (in production, this would come from AI backend)
-const mockPlan = {
-  id: 'plan-1',
-  title: 'Run a Marathon',
-  coachName: 'Coach Sarah',
-  steps: [
-    { id: '1', title: 'Get proper running shoes', duration: '1 day', completed: false },
-    { id: '2', title: 'Start with 2km runs, 3 times a week', duration: '2 weeks', completed: false },
-    { id: '3', title: 'Gradually increase to 5km runs', duration: '3 weeks', completed: false },
-    { id: '4', title: 'Build endurance with 10km runs', duration: '4 weeks', completed: false },
-    { id: '5', title: 'Practice half-marathon distance', duration: '6 weeks', completed: false },
-    { id: '6', title: 'Complete marathon training plan', duration: '8 weeks', completed: false },
-  ],
-  totalDuration: '24 weeks',
-  category: 'Fitness',
-};
-
 export default function PlanConfirmationScreen({
   navigation,
   route,
 }: PlanConfirmationScreenProps) {
-  const { isUpdate = false } = route.params;
+  const { goalId, plan, coachName, goalText, isUpdate = false } = route.params;
+  const [isAccepting, setIsAccepting] = useState(false);
 
-  const handleAccept = () => {
-    // Save plan and navigate to Plan Detail screen
-    navigation.replace('PlanDetail', { plan: mockPlan });
+  const acceptPlanMutation = useAcceptPlan();
+
+  const handleAccept = async () => {
+    setIsAccepting(true);
+
+    // Accept the plan via API
+    acceptPlanMutation.mutate(goalId, {
+      onSuccess: () => {
+        // Navigate to Plan Detail screen
+        const planData = {
+          id: goalId,
+          title: plan.goal || goalText,
+          coachName,
+          steps: plan.steps.map((step: any, index: number) => ({
+            id: step.id?.toString() || (index + 1).toString(),
+            title: step.title,
+            duration: step.duration,
+            completed: step.completed || false,
+            order: step.id || index + 1,
+          })),
+          totalDuration: calculateTotalDuration(plan.steps),
+          progress: 0,
+          category: 'Personal',
+          status: 'active',
+        };
+
+        navigation.replace('PlanDetail', { plan: planData, goalId });
+      },
+      onError: (error: any) => {
+        console.error('Failed to accept plan:', error);
+        setIsAccepting(false);
+        // You could show an error message here
+      },
+    });
   };
 
   const handleReject = () => {
@@ -47,10 +66,16 @@ export default function PlanConfirmationScreen({
     navigation.goBack();
   };
 
+  const calculateTotalDuration = (steps: any[]): string => {
+    // Sum up all step durations or provide a reasonable estimate
+    return `${steps.length * 2} weeks`; // Simple estimation
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
         <MaterialCommunityIcons
           name="check-circle"
           size={48}
@@ -74,24 +99,24 @@ export default function PlanConfirmationScreen({
         <Card style={styles.planCard}>
           <Card.Content>
             <View style={styles.planHeader}>
-              <View>
-                <Text style={styles.planTitle}>{mockPlan.title}</Text>
-                <Text style={styles.coachName}>by {mockPlan.coachName}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.planTitle}>{plan?.goal || goalText}</Text>
+                <Text style={styles.coachName}>by {coachName}</Text>
               </View>
               <Chip
                 icon="calendar"
                 style={styles.durationChip}
                 textStyle={styles.durationText}
               >
-                {mockPlan.totalDuration}
+                {calculateTotalDuration(plan?.steps || [])}
               </Chip>
             </View>
 
             <View style={styles.divider} />
 
             <Text style={styles.stepsTitle}>Action Steps</Text>
-            {mockPlan.steps.map((step, index) => (
-              <View key={step.id} style={styles.stepItem}>
+            {(plan?.steps || []).map((step: any, index: number) => (
+              <View key={step.id || index} style={styles.stepItem}>
                 <View style={styles.stepNumber}>
                   <Text style={styles.stepNumberText}>{index + 1}</Text>
                 </View>
@@ -128,23 +153,30 @@ export default function PlanConfirmationScreen({
             style={styles.acceptButton}
             buttonColor={COLORS.SUCCESS}
             textColor={COLORS.TEXT_WHITE}
+            disabled={isAccepting || acceptPlanMutation.isPending}
+            loading={isAccepting || acceptPlanMutation.isPending}
           >
-            Yes, Save Plan
+            {isAccepting || acceptPlanMutation.isPending ? 'Accepting...' : 'Yes, Save Plan'}
           </Button>
         </View>
       </View>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.CARD,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 20,
     paddingHorizontal: 24,
     backgroundColor: COLORS.CARD,

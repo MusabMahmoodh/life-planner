@@ -1,28 +1,47 @@
 // src/screens/PlanDetail/PlanDetailScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 import { Text, Card, Chip, ProgressBar, IconButton, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../constants/colors';
 import QuickChangesModal from './components/QuickChangesModal';
 import SetReminderModal from './components/SetReminderModal';
 import { scheduleReminder, scheduleInactivityReminder } from '../../services/notificationService';
+import { useToggleStep, useGoalDetails } from '../../hooks/useGoals';
 
 interface PlanDetailScreenProps {
   navigation: any;
   route: {
     params: {
       plan: any;
+      goalId?: string;
     };
   };
 }
 
 export default function PlanDetailScreen({ navigation, route }: PlanDetailScreenProps) {
-  const { plan } = route.params;
-  const [steps, setSteps] = useState(plan.steps || []);
+  const { plan: initialPlan, goalId } = route.params;
   const [showQuickChangesModal, setShowQuickChangesModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [lastActivityDate, setLastActivityDate] = useState(new Date());
+
+  // Fetch goal details if goalId is provided, otherwise use initial plan
+  const { data: goalDetail } = useGoalDetails(goalId || '', !!goalId);
+  const toggleStepMutation = useToggleStep();
+
+  // Use plan from API if available, otherwise use the initial plan
+  const plan = goalDetail?.plan ? {
+    ...initialPlan,
+    steps: goalDetail.plan.steps.map((step: any) => ({
+      id: step.id.toString(),
+      title: step.title,
+      duration: step.duration,
+      completed: step.completed,
+      order: step.id,
+    })),
+  } : initialPlan;
+
+  const steps = plan.steps || [];
 
   // Calculate progress
   const completedSteps = steps?.filter((s: any) => s.completed).length || 0;
@@ -55,11 +74,31 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
   }, [lastActivityDate]); // Only trigger when activity date changes
 
   const handleToggleStep = (stepId: string) => {
-    setSteps(
-      steps.map((step: any) =>
-        step.id === stepId ? { ...step, completed: !step.completed } : step
-      )
-    );
+    if (!goalId) {
+      console.warn('Cannot toggle step: goalId is not provided');
+      return;
+    }
+
+    const step = steps.find((s: any) => s.id === stepId);
+    if (!step) return;
+
+    const newCompletedState = !step.completed;
+
+    // Optimistically update UI
+    // Note: React Query will handle the actual update via cache invalidation
+
+    // Call API to toggle step
+    toggleStepMutation.mutate({
+      goalId,
+      stepId: parseInt(stepId),
+      completed: newCompletedState,
+    }, {
+      onError: (error) => {
+        console.error('Failed to toggle step:', error);
+        // Optionally show an error message to the user
+      },
+    });
+
     // Update last activity date when user interacts with plan
     setLastActivityDate(new Date());
   };
@@ -91,11 +130,22 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
   };
 
   const handleChatClick = () => {
-    // Navigate to chat with PLAN_SCREEN mode
-    navigation.navigate('ChatFromPlan', {
-      plan,
-      mode: 'PLAN_SCREEN',
-    });
+    // Navigate to chat with the goal ID
+    if (goalId) {
+      navigation.navigate('ChatFromPlan', {
+        goalId,
+        coachName: plan.coachName || 'Coach',
+        goalText: plan.title,
+        mode: 'PLAN_SCREEN',
+        plan,
+      });
+    } else {
+      // Fallback if no goalId
+      navigation.navigate('ChatFromPlan', {
+        plan,
+        mode: 'PLAN_SCREEN',
+      });
+    }
   };
 
   const handleQuickChanges = () => {
@@ -122,17 +172,19 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <IconButton
-            icon="arrow-left"
-            size={24}
-            onPress={() => navigation.goBack()}
-            iconColor={COLORS.TEXT_WHITE}
-          />
-          <View style={styles.headerActions}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <IconButton
+              icon="arrow-left"
+              size={24}
+              onPress={() => navigation.goBack()}
+              iconColor={COLORS.TEXT_WHITE}
+              style={styles.headerButton}
+            />
+            <View style={styles.headerActions}>
             <IconButton
               icon="bell-plus"
               size={24}
@@ -332,28 +384,37 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
         onSetReminder={handleSetReminder}
         planTitle={plan.title}
       />
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.PRIMARY,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
   },
   header: {
     backgroundColor: COLORS.PRIMARY,
-    paddingTop: 50,
     paddingBottom: 24,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
+    minHeight: 56,
+  },
+  headerButton: {
+    margin: 0,
   },
   headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   headerContent: {
     paddingHorizontal: 20,

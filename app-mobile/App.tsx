@@ -4,6 +4,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import AppNavigator from './src/navigation/AppNavigator';
 import theme from './src/theme/theme';
+import { QueryProvider } from './src/providers/QueryProvider';
+import { AuthProvider } from './src/providers/AuthProvider';
 
 export default function App() {
   const navigationRef = useRef<any>(null);
@@ -65,10 +67,14 @@ export default function App() {
   }, []);
 
   return (
-    <PaperProvider theme={theme}>
-      <NavigationContainer ref={navigationRef}>
-        <AppNavigator />
-      </NavigationContainer>
-    </PaperProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <PaperProvider theme={theme}>
+          <NavigationContainer ref={navigationRef}>
+            <AppNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+      </AuthProvider>
+    </QueryProvider>
   );
 }

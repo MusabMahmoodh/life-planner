@@ -7,6 +7,7 @@ import { useTheme } from 'react-native-paper';
 // Import screens
 import GoalsScreen from '../screens/Goals/GoalsScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
+import ProfileScreen from '../screens/Profile/ProfileScreen';
 import UpdatesScreen from '../screens/Updates/UpdatesScreen';
 import CommunitiesScreen from '../screens/Communities/CommunitiesScreen';
 import CallsScreen from '../screens/Calls/CallsScreen';
@@ -51,14 +52,14 @@ export default function RootNavigator() {
             case 'Goals':
               iconName = focused ? 'target' : 'target-variant';
               break;
-            case 'Updates':
-              iconName = focused ? 'bell' : 'bell-outline';
-              break;
             case 'Communities':
               iconName = focused ? 'account-group' : 'account-group-outline';
               break;
             case 'Calls':
               iconName = focused ? 'video' : 'video-outline';
+              break;
+            case 'Profile':
+              iconName = focused ? 'account' : 'account-outline';
               break;
           }
 
@@ -84,14 +85,7 @@ export default function RootNavigator() {
         component={GoalsStackNavigator}
         options={{
           title: 'Goals',
-        }}
-      />
-      <Tab.Screen
-        name="Updates"
-        component={UpdatesScreen}
-        options={{
-          title: 'Updates',
-          tabBarBadge: 3, // Shows badge with number "3" like in reference app
+          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -106,6 +100,17 @@ export default function RootNavigator() {
         component={CallsScreen}
         options={{
           title: 'Calls',
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          headerStyle: {
+            backgroundColor: theme.colors.surface,
+          },
+          headerTintColor: theme.colors.onSurface,
         }}
       />
     </Tab.Navigator>
