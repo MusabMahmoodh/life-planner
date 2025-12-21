@@ -11,12 +11,15 @@ interface GeneratingScreenProps {
     params: {
       planData: any;
       isUpdate?: boolean;
+      goalId?: string;
+      coachName?: string;
+      goalText?: string;
     };
   };
 }
 
 export default function GeneratingScreen({ navigation, route }: GeneratingScreenProps) {
-  const { planData, isUpdate = false } = route.params;
+  const { planData, isUpdate = false, goalId, coachName, goalText } = route.params;
   const scaleAnim = new Animated.Value(1);
   const rotateAnim = new Animated.Value(0);
 
@@ -53,7 +56,10 @@ export default function GeneratingScreen({ navigation, route }: GeneratingScreen
     const timer = setTimeout(() => {
       // Navigate to confirmation screen
       navigation.replace('PlanConfirmation', {
-        planData,
+        goalId: goalId || planData?.plan?.id,
+        plan: planData?.plan || planData,
+        coachName: coachName || planData?.plan?.coachName || 'Coach',
+        goalText: goalText || planData?.plan?.title || 'Your Goal',
         isUpdate,
       });
     }, 3000);

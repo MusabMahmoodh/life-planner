@@ -122,11 +122,8 @@ export default function ReminderAlarmScreen({
       duration: 300,
       useNativeDriver: true,
     }).start(() => {
-      // Navigate to plan detail
-      navigation.replace('MainTabs');
-      setTimeout(() => {
-        navigation.navigate('PlanDetail', { plan: { id: planId, title: planTitle } });
-      }, 100);
+      // Navigate to plan detail directly
+      navigation.navigate('PlanDetail', { plan: { id: planId, title: planTitle } });
     });
   };
 

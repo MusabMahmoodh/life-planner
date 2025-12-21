@@ -163,12 +163,16 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
         modifications: [{ text: changes }],
       },
       isUpdate: true,
+      goalId: goalId || plan.id,
+      coachName: plan.coachName,
+      goalText: plan.title,
     });
   };
 
   const handleListClick = () => {
-    // Navigate back to plans list
-    navigation.navigate('MainTabs');
+    // Navigate back to goals list (MainTabs)
+    // Use getParent() to navigate from PlanDetail (in AppNavigator) to MainTabs
+    navigation.navigate('MainTabs', { screen: 'Goals' });
   };
 
   return (
@@ -208,7 +212,9 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
 
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>{plan.title}</Text>
-          <Text style={styles.headerSubtitle}>by {plan.coachName}</Text>
+          {plan.coachName && (
+            <Text style={styles.headerSubtitle}>by {plan.coachName}</Text>
+          )}
 
           {/* Progress */}
           <View style={styles.progressContainer}>

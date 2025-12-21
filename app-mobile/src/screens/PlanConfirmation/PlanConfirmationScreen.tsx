@@ -23,6 +23,11 @@ export default function PlanConfirmationScreen({
   route,
 }: PlanConfirmationScreenProps) {
   const { goalId, plan, coachName, goalText, isUpdate = false } = route.params;
+
+  // Validate that goalId exists
+  if (!goalId) {
+    console.error('PlanConfirmationScreen: goalId is missing!', route.params);
+  }
   const [isAccepting, setIsAccepting] = useState(false);
 
   const acceptPlanMutation = useAcceptPlan();

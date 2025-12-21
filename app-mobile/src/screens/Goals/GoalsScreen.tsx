@@ -32,17 +32,25 @@ export default function GoalsScreen({ navigation }: any) {
 
   // Transform API goals to UI format
   const transformGoalToUI = (apiGoal: APIGoal): Goal => {
+    // Map pending_acceptance to active for display purposes
+    let displayStatus: "active" | "completed" | "archived" = "active";
+    if (apiGoal.status === "completed") {
+      displayStatus = "completed";
+    } else if (apiGoal.status === "archived") {
+      displayStatus = "archived";
+    }
+
     return {
       id: apiGoal.id,
       title: apiGoal.goal_description,
-      description: `Coached by ${apiGoal.coach_name}`,
+      description: apiGoal.coach_name ? `Coached by ${apiGoal.coach_name}` : "AI Coaching",
       category: "Personal", // Default category, could be enhanced
       progress: 0, // Would need to calculate from plan steps
       targetDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days
       startDate: apiGoal.created_at,
       priority: "medium" as const,
       aiCoachingEnabled: true,
-      status: apiGoal.status as "active" | "completed" | "archived",
+      status: displayStatus,
       streak: 0, // Would need to track this
       tasks: [], // Would need to load from plan
     };

@@ -29,8 +29,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       { email, password },
       {
         onSuccess: (data) => {
-          // Navigate directly to MainTabs (bottom navigation) after successful login
-          navigation.replace('MainTabs');
+          // AuthProvider will automatically update isAuthenticated
+          // which triggers AppNavigator to show MainTabs
+          // No manual navigation needed
         },
         onError: (error: any) => {
           setSnackbarMessage(error.message || 'Login failed. Please try again.');
