@@ -9,6 +9,7 @@ import { TestimonialSection } from "@/components/TestimonialSection";
 import { TrustStats } from "@/components/TrustStats";
 import { CtaSection } from "@/components/CtaSection";
 import { Footer } from "@/components/Footer";
+import { StickyMobileCTA } from "@/components/StickyMobileCTA";
 
 const Index = () => {
   return (
@@ -26,6 +27,8 @@ const Index = () => {
         <CtaSection />
       </main>
       <Footer />
+      {/* Mobile sticky CTA - appears after scrolling */}
+      <StickyMobileCTA />
     </div>
   );
 };

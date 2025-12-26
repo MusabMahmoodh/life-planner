@@ -141,7 +141,17 @@ export function InteractiveChat({ onSignupClick }: InteractiveChatProps) {
 
       {/* Input Area */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-border bg-muted/30">
-        <div className="flex items-center gap-3">
+        <div className="relative flex items-center gap-3">
+          {/* Pulsing indicator for mobile - shows when not interacted */}
+          {!hasInteracted && (
+            <div className="absolute -top-2 -right-2 md:hidden z-10">
+              <span className="relative flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500" />
+              </span>
+            </div>
+          )}
+
           <div className="flex-1 bg-background rounded-full px-4 py-3 flex items-center border border-border focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <input
               ref={inputRef}
@@ -161,10 +171,17 @@ export function InteractiveChat({ onSignupClick }: InteractiveChatProps) {
             </button>
           </div>
         </div>
+
+        {/* Helper text - more prominent on mobile */}
         <p className="text-xs text-center text-muted-foreground mt-3">
-          {hasInteracted 
+          {hasInteracted
             ? "Sign up to save this conversation and unlock unlimited coaching"
-            : "Type a message to try the AI coach • No signup required"
+            : (
+              <>
+                <span className="hidden md:inline">Type a message to try the AI coach • No signup required</span>
+                <span className="md:hidden">Try it! Type one goal you're struggling with</span>
+              </>
+            )
           }
         </p>
       </form>

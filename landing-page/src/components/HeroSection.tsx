@@ -32,9 +32,9 @@ export function HeroSection() {
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-secondary/30 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-secondary/20 rounded-full blur-3xl" />
 
-      {/* Decorative script line */}
+      {/* Decorative script line - Desktop only */}
       <svg
-        className="absolute bottom-20 left-0 right-0 w-full h-48 opacity-10 pointer-events-none"
+        className="absolute bottom-20 left-0 right-0 w-full h-48 opacity-10 pointer-events-none hidden md:block"
         viewBox="0 0 1440 200"
         fill="none"
         preserveAspectRatio="xMidYMid slice"
@@ -56,7 +56,7 @@ export function HeroSection() {
       </svg>
 
       <div className="section-container relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[calc(100vh-8rem)]">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center min-h-[calc(100vh-8rem)]">
           {/* Left Content */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -68,28 +68,48 @@ export function HeroSection() {
               THE OLD SAYING WAS WRONG
             </p>
 
-            <h1 className="heading-hero text-foreground mb-6">
+            {/* Desktop Hero Text */}
+            <h1 className="heading-hero text-foreground mb-6 hidden md:block">
               Failing to Plan{" "}
               <span className="italic font-normal">Wasn't</span>
               <br />
               The Problem.
             </h1>
 
-            <p className="text-lg md:text-xl text-muted-foreground mb-4 max-w-lg">
+            {/* Mobile Hero Text - Shorter & Punchier */}
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-foreground mb-4 md:hidden">
+              Plans Fail.
+              <br />
+              <span className="italic font-normal">You Don't Have To.</span>
+            </h1>
+
+            {/* Desktop Description */}
+            <p className="text-lg md:text-xl text-muted-foreground mb-4 max-w-lg hidden md:block">
               You planned. You tried. You did your best.
               <br />
               <span className="italic">But life got in the way.</span>
             </p>
 
-            <p className="body-large text-foreground/80 mb-8 max-w-lg">
+            {/* Mobile Description - Condensed */}
+            <p className="text-base text-muted-foreground mb-3 md:hidden">
+              You did everything right. <span className="italic">Life still got in the way.</span>
+            </p>
+
+            {/* Desktop Full Description */}
+            <p className="body-large text-foreground/80 mb-8 max-w-lg hidden md:block">
               Meet AchievaAI. The first AI companion that doesn't just track
               your goals—it understands <em>you</em>. When your plans fall
               apart, we don't judge. We help you pick up the pieces and
               re-route, just like a real human coach.
             </p>
 
+            {/* Mobile Condensed Description */}
+            <p className="text-base text-foreground/80 mb-6 md:hidden">
+              AchievaAI adapts when your plans fall apart—like a real coach who actually cares.
+            </p>
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <Button variant="hero" size="xl" className="btn-pulse">
+              <Button variant="hero" size="xl" className="btn-pulse w-full sm:w-auto">
                 Start for Free
               </Button>
             </div>
@@ -97,6 +117,16 @@ export function HeroSection() {
             <p className="mt-4 text-sm text-muted-foreground italic">
               Premium features include Human-Voice Mode • 50% Off for Students
             </p>
+
+            {/* Social proof counter - Mobile */}
+            <div className="mt-6 flex items-center gap-3 text-sm text-muted-foreground md:hidden">
+              <div className="flex -space-x-2">
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-medium border-2 border-background">JK</div>
+                <div className="w-8 h-8 rounded-full bg-success flex items-center justify-center text-xs font-medium border-2 border-background">MR</div>
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+10K</div>
+              </div>
+              <span>people started their coaching today</span>
+            </div>
           </motion.div>
 
           {/* Right Content - Phone Mockup with Animated Chat */}
