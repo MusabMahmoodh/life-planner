@@ -1,73 +1,106 @@
-# Welcome to your Lovable project
+# AchievaAI Landing Page
 
-## Project info
+The marketing landing page for AchievaAI - Your Intelligent AI Coaching Companion.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## About
 
-## How can I edit this code?
+AchievaAI is the first AI companion that doesn't just track your goals—it understands you. When your plans fall apart, we help you re-route, just like a real human coach.
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **Animations**: Framer Motion
+- **Routing**: React Router DOM
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+ (recommended: use [nvm](https://github.com/nvm-sh/nvm))
+- npm, pnpm, or bun
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# Clone the repository
+git clone <repository-url>
 
-Follow these steps:
+# Navigate to the landing page directory
+cd landing-page
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
+# or
+pnpm install
+# or
+bun install
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Development
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Build
 
-**Use GitHub Codespaces**
+```bash
+# Build for production
+npm run build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Preview the production build
+npm run preview
+```
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+```
+src/
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── Navigation.tsx      # Header navigation
+│   ├── HeroSection.tsx     # Hero with chat mockup
+│   ├── InteractiveChat.tsx # Live AI demo
+│   └── ...                 # Other section components
+├── pages/
+│   ├── Index.tsx           # Main landing page
+│   └── NotFound.tsx        # 404 page
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utilities
+├── App.tsx                 # App entry with routing
+├── main.tsx                # React DOM entry
+└── index.css               # Global styles & Tailwind
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Page Sections
 
-## How can I deploy this project?
+1. **Navigation** - Fixed header with mobile menu
+2. **Hero** - Animated chat mockup with CTA
+3. **Stats** - Featured press logos
+4. **Problem** - "Why Most Plans Fail" section
+5. **Solution** - Feature showcase with interactive demo
+6. **Personas** - Target audience cards
+7. **Pricing** - Starter, Premium, and Student tiers
+8. **Testimonials** - User reviews
+9. **Trust Stats** - Key metrics
+10. **CTA** - Final conversion section
+11. **Footer** - Links and social
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Scripts
 
-## Can I connect a custom domain to my Lovable project?
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
 
-Yes, you can!
+## License
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Proprietary - All rights reserved.
