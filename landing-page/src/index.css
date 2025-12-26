@@ -1,0 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* AchievaAI Color Palette */
+    --background: 0 0% 100%;
+    --foreground: 12 30% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 12 30% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 12 30% 10%;
+
+    /* Primary: Rich dark brown #231212 */
+    --primary: 0 30% 10%;
+    --primary-foreground: 0 0% 98%;
+
+    /* Secondary: Soft lavender #e3e2f7 */
+    --secondary: 243 53% 93%;
+    --secondary-foreground: 0 30% 10%;
+
+    /* Muted: Cream white #f4f4f4 */
+    --muted: 0 0% 96%;
+    --muted-foreground: 12 10% 40%;
+
+    /* Accent: Lavender */
+    --accent: 243 53% 93%;
+    --accent-foreground: 0 30% 10%;
+
+    /* Success: Soft mint #e8f5e3 */
+    --success: 105 47% 93%;
+    --success-foreground: 120 30% 25%;
+
+    /* Problem: Soft red tint */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --problem-bg: 0 84% 96%;
+
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 243 53% 70%;
+
+    --radius: 1.5rem;
+
+    /* Custom shadows */
+    --shadow-soft: 0 8px 32px hsla(0, 0%, 0%, 0.08);
+    --shadow-card: 0 4px 24px hsla(0, 0%, 0%, 0.06);
+    --shadow-hover: 0 12px 40px hsla(0, 0%, 0%, 0.12);
+
+    /* Sidebar (unused but keeping for compatibility) */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 12 30% 6%;
+    --foreground: 0 0% 98%;
+
+    --card: 12 25% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 12 25% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 30% 10%;
+
+    --secondary: 243 20% 20%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 12 20% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 243 20% 25%;
+    --accent-foreground: 0 0% 98%;
+
+    --success: 105 30% 20%;
+    --success-foreground: 105 47% 80%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --problem-bg: 0 40% 15%;
+
+    --border: 12 20% 18%;
+    --input: 12 20% 18%;
+    --ring: 243 53% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply max-w-7xl mx-auto px-6 md:px-12 lg:px-20;
+  }
+
+  .section-padding {
+    @apply py-20 md:py-28 lg:py-32;
+  }
+
+  .eyebrow {
+    @apply text-xs md:text-sm uppercase tracking-widest font-medium text-muted-foreground mb-4;
+  }
+
+  .heading-hero {
+    @apply text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight tracking-tight;
+  }
+
+  .heading-section {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold leading-tight;
+  }
+
+  .body-large {
+    @apply text-lg md:text-xl leading-relaxed;
+  }
+
+  .gradient-lavender {
+    @apply bg-gradient-to-br from-secondary via-secondary/50 to-background;
+  }
+
+  .gradient-hero {
+    @apply bg-gradient-to-br from-secondary/40 via-background to-muted/30;
+  }
+
+  .card-elevated {
+    @apply bg-card rounded-3xl shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-hover)] transition-shadow duration-300;
+  }
+
+  .phone-mockup {
+    @apply bg-foreground rounded-[2.5rem] p-2 shadow-2xl;
+  }
+
+  .phone-screen {
+    @apply bg-background rounded-[2rem] overflow-hidden;
+  }
+
+  .chat-bubble-user {
+    @apply bg-muted text-foreground rounded-2xl rounded-br-md px-4 py-3;
+  }
+
+  .chat-bubble-ai {
+    @apply bg-secondary text-secondary-foreground rounded-2xl rounded-bl-md px-4 py-3;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-float-delayed {
+    animation: float 6s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  /* CTA Pulse/Glow Animation */
+  .btn-pulse {
+    animation: btn-pulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes btn-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 12px hsl(var(--primary) / 0);
+    }
+  }
+}
