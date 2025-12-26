@@ -46,11 +46,18 @@ export function InteractiveChat({ onSignupClick }: InteractiveChatProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Use scrollTop on parent instead of scrollIntoView to avoid scrolling the whole page
+    const container = messagesEndRef.current?.parentElement;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Only scroll after initial render (when user has interacted)
+    if (messages.length > 1) {
+      scrollToBottom();
+    }
   }, [messages, isTyping]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -143,14 +150,14 @@ export function InteractiveChat({ onSignupClick }: InteractiveChatProps) {
       <form onSubmit={handleSubmit} className="p-4 border-t border-border bg-muted/30">
         <div className="relative flex items-center gap-3">
           {/* Pulsing indicator for mobile - shows when not interacted */}
-          {!hasInteracted && (
+          {/* {!hasInteracted && (
             <div className="absolute -top-2 -right-2 md:hidden z-10">
               <span className="relative flex h-4 w-4">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500" />
               </span>
             </div>
-          )}
+          )} */}
 
           <div className="flex-1 bg-background rounded-full px-4 py-3 flex items-center border border-border focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <input
