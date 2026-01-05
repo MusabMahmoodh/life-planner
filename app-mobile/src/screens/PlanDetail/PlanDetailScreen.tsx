@@ -67,7 +67,6 @@ export default function PlanDetailScreen({ navigation, route }: PlanDetailScreen
           },
           lastActivityDate
         );
-        console.log('Inactivity reminder scheduled:', notificationId);
       };
       setupInactivityReminder();
     }

@@ -38,7 +38,6 @@ export default function ChatConversationScreen({
 }: ChatConversationScreenProps) {
   const { goalId, coachName, goalText } = route.params;
 
-  console.log(`[${new Date().toISOString()}] ChatConversationScreen MOUNTED`);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [welcomeMessage, setWelcomeMessage] = useState<string>('');

@@ -33,6 +33,8 @@ export const useLogin = () => {
  * Hook for user registration
  */
 export const useRegister = () => {
+  const { login: authLogin } = useAuthContext();
+
   return useMutation({
     mutationFn: async (data: RegisterRequest) => {
       const response = await apiClient.register(data);
@@ -42,6 +44,9 @@ export const useRegister = () => {
       }
 
       return response.data!;
+    },
+    onSuccess: async (data) => {
+      await authLogin(data.access_token, data.user);
     },
   });
 };

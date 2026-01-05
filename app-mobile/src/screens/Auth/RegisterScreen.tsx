@@ -42,13 +42,6 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
       { email, password },
       {
         onSuccess: (data) => {
-          setSnackbarMessage('Registration successful! Please check your email to verify your account.');
-          setSnackbarVisible(true);
-
-          // Navigate back to login after 2 seconds
-          setTimeout(() => {
-            navigation.navigate('Login');
-          }, 2000);
         },
         onError: (error: any) => {
           setSnackbarMessage(error.message || 'Registration failed. Please try again.');

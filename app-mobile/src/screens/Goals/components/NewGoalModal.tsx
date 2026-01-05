@@ -87,7 +87,6 @@ export default function NewGoalModal({
   // Use a longer delay to ensure navigation is completely stable
   useEffect(() => {
     if (!visible) {
-      console.log(`[${new Date().toISOString()}] 5. Modal visible=FALSE, will reset in 3000ms`);
       // Long delay to allow navigation to fully complete and stabilize
       // This prevents ChatConversationScreen from remounting when modal unmounts
       const timer = setTimeout(() => {
@@ -102,7 +101,6 @@ export default function NewGoalModal({
       return;
     }
 
-    console.log(`[${new Date().toISOString()}] 1. Create Goal clicked - showing animation`);
 
     // Show full-screen AI generating animation
     setIsGenerating(true);
@@ -119,7 +117,6 @@ export default function NewGoalModal({
   };
 
   const resetForm = () => {
-    console.log(`[${new Date().toISOString()}] 6. Resetting form - isGenerating now FALSE`);
     setCoachName("");
     setTitle("");
     setIsGenerating(false);
@@ -132,12 +129,10 @@ export default function NewGoalModal({
 
   // Keep rendering if generating (even if not visible) to prevent flash during navigation
   if (!visible && !isGenerating) {
-    console.log(`[${new Date().toISOString()}] 7. Modal unmounting (visible=FALSE, isGenerating=FALSE)`);
     return null;
   }
 
   if (!visible && isGenerating) {
-    console.log(`[${new Date().toISOString()}] Modal still showing overlay (visible=FALSE but isGenerating=TRUE)`);
   }
 
   return (

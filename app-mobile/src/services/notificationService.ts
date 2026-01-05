@@ -33,7 +33,6 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Failed to get push token for push notification!');
     return false;
   }
 
@@ -60,22 +59,18 @@ export async function scheduleReminder(
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) {
-      console.log('No notification permission');
       return null;
     }
 
     // If the trigger date is in the past, don't schedule
     const now = new Date();
     if (triggerDate <= now) {
-      console.log('Trigger date is in the past:', triggerDate);
       return null;
     }
 
     // Calculate seconds from now
     const secondsUntilTrigger = Math.floor((triggerDate.getTime() - now.getTime()) / 1000);
 
-    console.log('Scheduling notification for:', triggerDate.toLocaleString());
-    console.log('Seconds from now:', secondsUntilTrigger);
 
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
@@ -96,7 +91,6 @@ export async function scheduleReminder(
       } as any,
     });
 
-    console.log('Notification scheduled successfully:', notificationId);
     return notificationId;
   } catch (error) {
     console.error('Error scheduling notification:', error);
@@ -134,7 +128,6 @@ export async function scheduleInactivityReminder(
 export async function cancelReminder(notificationId: string): Promise<void> {
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
-    console.log('Notification cancelled:', notificationId);
   } catch (error) {
     console.error('Error cancelling notification:', error);
   }
@@ -154,7 +147,6 @@ export async function cancelAllRemindersForPlan(planId: string): Promise<void> {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
     }
 
-    console.log(`Cancelled ${planNotifications.length} notifications for plan ${planId}`);
   } catch (error) {
     console.error('Error cancelling plan notifications:', error);
   }

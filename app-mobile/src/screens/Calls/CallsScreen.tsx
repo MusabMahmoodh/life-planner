@@ -33,7 +33,7 @@ export default function CallsScreen() {
 
   const handleScheduleCall = (callData: NewCallData) => {
     // TODO: Implement call scheduling logic
-    console.log("New call scheduled:", callData);
+// console.log("New call scheduled:", callData);
     setShowScheduleModal(false);
     // In a real app, you would:
     // 1. Call an API to create the call

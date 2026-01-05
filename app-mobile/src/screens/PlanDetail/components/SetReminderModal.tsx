@@ -37,8 +37,6 @@ export default function SetReminderModal({
     const now = new Date();
     const minutesUntilReminder = Math.floor((reminderDate.getTime() - now.getTime()) / (1000 * 60));
 
-    console.log('Setting reminder for:', reminderDate.toLocaleString());
-    console.log('Minutes from now:', minutesUntilReminder);
 
     if (reminderDate > now && minutesUntilReminder > 0) {
       onSetReminder(reminderDate, reminderMessage);
@@ -46,7 +44,6 @@ export default function SetReminderModal({
       setReminderMessage('');
       setReminderDate(getDefaultReminderDate());
     } else {
-      console.log('Reminder date is in the past or too close');
     }
   };
 

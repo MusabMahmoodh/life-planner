@@ -13,7 +13,12 @@ class Settings(BaseSettings):
 
     # App
     DEBUG: bool = True
-    
+
+    # JWT Authentication
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
     class Config:
         env_file = ".env"
 

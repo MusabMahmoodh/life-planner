@@ -16,10 +16,8 @@ export default function GoalsScreen({ navigation }: any) {
   // Close and reset modal when screen comes into focus (cleanup from previous navigation)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('GoalsScreen focused');
       // Always close modal on focus to clean up from navigation
       if (showNewGoalModal) {
-        console.log('Closing modal on focus');
         setShowNewGoalModal(false);
       }
     });
@@ -94,8 +92,6 @@ export default function GoalsScreen({ navigation }: any) {
       },
       {
         onSuccess: (goal) => {
-          console.log(`[${new Date().toISOString()}] 2. API Success - goal created`);
-          console.log(`[${new Date().toISOString()}] 3. Navigating to ChatFromPlan NOW`);
 
           // Navigate immediately
           // Use getParent() twice to go from GoalsStack -> RootNavigator -> AppNavigator
@@ -105,11 +101,9 @@ export default function GoalsScreen({ navigation }: any) {
             goalText: goal.goal_description,
           });
 
-          console.log(`[${new Date().toISOString()}] 4. Waiting for navigation animation to complete`);
           // Close modal AFTER all navigation animations/interactions complete
           // This prevents remounts while keeping the overlay visible during transition
           InteractionManager.runAfterInteractions(() => {
-            console.log(`[${new Date().toISOString()}] 5. Navigation complete - closing modal now`);
             setShowNewGoalModal(false);
           });
         },
@@ -148,7 +142,6 @@ export default function GoalsScreen({ navigation }: any) {
             totalDuration = `${weeks} weeks`;
           }
         } catch (e) {
-          console.log('Error calculating duration:', e);
         }
 
         // Calculate progress
@@ -315,7 +308,6 @@ export default function GoalsScreen({ navigation }: any) {
         style={[styles.fab, { backgroundColor: COLORS.PRIMARY }]}
         color={COLORS.TEXT_WHITE}
         onPress={() => {
-          console.log("FAB clicked - opening modal");
           setShowNewGoalModal(true);
         }}
         label="New Goal"
@@ -325,7 +317,6 @@ export default function GoalsScreen({ navigation }: any) {
       <NewGoalModal
         visible={showNewGoalModal}
         onDismiss={() => {
-          console.log("Modal dismissed");
           setShowNewGoalModal(false);
         }}
         onSave={handleNewGoal}
